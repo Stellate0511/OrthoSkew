@@ -39,8 +39,8 @@ html,body{height:100%;overflow:clip;overscroll-behavior:none}
 .view-roll span{margin-right:auto}
 .view-roll button{background:#19283e;border:1px solid #3a526c;color:#d4e4f6;border-radius:8px;min-width:44px;height:36px;font-size:23px;line-height:1;cursor:pointer}
 .view-roll button:hover{background:#304664}
-.scramble-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 1px 0;padding:9px 12px;background:#17253a;border:1px solid #2c4058;border-radius:9px;color:#b8cee0;font-size:12px;cursor:pointer}
-.scramble-setting input{position:absolute;opacity:0;width:1px;height:1px}
+.scramble-setting{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 1px 0;padding:9px 12px;background:#17253a;border:1px solid #2c4058;border-radius:9px;color:#b8cee0;font-size:12px;cursor:pointer}
+.scramble-setting input{position:absolute;top:50%;right:12px;transform:translateY(-50%);opacity:0;width:30px;height:17px;z-index:1;cursor:pointer}
 .scramble-setting input:focus-visible+.switch{outline:2px solid #70e2c5;outline-offset:4px}
 .scramble-setting input:checked+.switch{background:#32a98f}
 .scramble-setting input:checked+.switch b{transform:translateX(13px);background:white}
@@ -143,6 +143,10 @@ html,body{height:100%;overflow:clip;overscroll-behavior:none}
 }
 @media(prefers-reduced-motion:reduce){.loader{animation:none}*{scroll-behavior:auto!important}}
 
+/* Fixed viewport, independent sidebar scroll; never let focus move the page. */
+html,body{width:100%;height:100%;overscroll-behavior:none}
+body{position:fixed;inset:0;overflow:clip}
+
 </style>
   <!-- Direct static hosting: this import map works on GitHub Pages, with no build needed. -->
   <script type="importmap">
@@ -150,7 +154,6 @@ html,body{height:100%;overflow:clip;overscroll-behavior:none}
   </script>
   <script type="module">
 import * as THREE from 'three';
-
 // ===== geometry.js =====
 // Exact cutting-plane layout, with floating-point vertices only for rendering.
 // All puzzle state transitions use integer rotations and a fixed original geometry.
@@ -326,7 +329,6 @@ function debugVolume(poly) { let v = 0; for (const f of poly.faces)
     for (let i = 1; i < f.v.length - 1; i++)
         v += dot(f.v[0], cross(f.v[i], f.v[i + 1])) / 6; return Math.abs(v); }
 
-
 // ===== picking.js =====
 // Pick a visible surface without looking through a nearer chamfer or cut face.
 // Coordinates are cube-centered world space. No Three.js dependency: regression
@@ -362,7 +364,6 @@ function pickVisibleSurface(hits, eye, faceDefs, half, tolerance = FACE_PICK_TOL
   const face = classifyVisibleFace(point, eye, faceDefs, half, tolerance);
   return face ? { hit, face } : null;
 }
-
 
 // ===== layers.js =====
 /** Layer indices are zero-based. Coordinates are centered on the whole cube. */
@@ -462,7 +463,6 @@ function isOutwardEdgeFlick(petalEdge, dU, dV) {
     || (petalEdge === 'v+' && dV > 0);
 }
 
-
 // ===== solved.js =====
 /** Visual solved status: every external face is monochrome, regardless of
  * global cube rotation or of exchanges between same-color triangular petals.
@@ -490,7 +490,6 @@ function transformDirection(m, v) {
           m[3]*v[0]+m[4]*v[1]+m[5]*v[2],
           m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];
 }
-
 
 // ===== scramble.js =====
 /**
@@ -573,10 +572,12 @@ function randomScrambleMove(order, previousAxis = null, rng = Math.random) {
   return move;
 }
 
-function generateStandardScramble(order, rng = Math.random) {
+function generateStandardScramble(order, rng = Math.random, previousMoveOrAxis = null) {
   const count = standardScrambleSteps(order);
   const moves = [];
-  let previousAxis = null;
+  // Carry the axis constraint across scramble calls and manual turns.
+  let previousAxis = previousMoveOrAxis == null ? null
+    : (typeof previousMoveOrAxis === 'string' ? previousMoveOrAxis : rotationAxisKey(previousMoveOrAxis));
   for (let i = 0; i < count; i++) {
     const move = randomScrambleMove(order, previousAxis, rng);
     const axis = rotationAxisKey(move);
@@ -587,8 +588,85 @@ function generateStandardScramble(order, rng = Math.random) {
   return moves;
 }
 
+// ===== persistence.js =====
+/**
+ * Versioned browser saves. A game is fully reconstructed by replaying its
+ * validated move history, rather than trusting stale geometry coordinates.
+ * Separate keys keep each order's undo/redo history independent.
+ */
+
+const SAVE_VERSION = 1;
+const PREFIX = `orthoskew:game:v${SAVE_VERSION}:`;
+const PREFERENCES_KEY = `orthoskew:preferences:v${SAVE_VERSION}`;
+const MAX_STORED_MOVES = 20000;
+
+function validMove(move, order) {
+  if (!move || typeof move !== 'object' || Array.isArray(move)) return false;
+  if (!Number.isInteger(order) || order < 2 || order > 6) return false;
+  if (move.type !== 'orth' && move.type !== 'corner') return false;
+  if (move.sign !== 1 && move.sign !== -1) return false;
+  if (typeof move.wide !== 'boolean') return false;
+  if (!Number.isInteger(move.depth) || move.depth < 0 || move.depth >= (move.type === 'orth' ? order : 3 * order)) return false;
+  if (move.type === 'orth') {
+    if (![0,1,2].includes(move.axis) || ![1,-1].includes(move.side)) return false;
+  } else if (!Array.isArray(move.corner) || move.corner.length !== 3 ||
+             !move.corner.every(n => n === 1 || n === -1)) return false;
+  // Historical orthogonal gestures may record wide=true on an odd central
+  // layer; the geometry engine correctly treats that as a single-layer move.
+  // Both encodings reconstruct exactly the same valid state.
+  return true;
+}
+
+function copyMove(move) {
+  return move.type === 'orth'
+    ? { type: 'orth', axis: move.axis, side: move.side, depth: move.depth, wide: move.wide, sign: move.sign }
+    : { type: 'corner', corner: [...move.corner], depth: move.depth, wide: move.wide, sign: move.sign };
+}
+
+function loadGame(storage, order) {
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(`${PREFIX}${order}`);
+    if (!raw) return null;
+    const game = JSON.parse(raw);
+    if (game.version !== SAVE_VERSION || game.order !== order || !Array.isArray(game.moves) || !Array.isArray(game.redo)) return null;
+    if (game.moves.length + game.redo.length > MAX_STORED_MOVES) return null;
+    if (![...game.moves,...game.redo].every(move => validMove(move,order))) return null;
+    return { moves: game.moves.map(copyMove), redo: game.redo.map(copyMove) };
+  } catch { return null; }
+}
+
+function saveGame(storage, order, moves, redo) {
+  if (!storage) return false;
+  try {
+    if (moves.length + redo.length > MAX_STORED_MOVES || ![...moves,...redo].every(m => validMove(m,order))) return false;
+    storage.setItem(`${PREFIX}${order}`, JSON.stringify({version:SAVE_VERSION,order,moves,redo}));
+    return true;
+  } catch { return false; }
+}
+
+function loadPreferences(storage) {
+  const defaults = {order:3,animate:true};
+  if (!storage) return defaults;
+  try {
+    const value = JSON.parse(storage.getItem(PREFERENCES_KEY));
+    return {
+      order: Number.isInteger(value?.order) && value.order >= 2 && value.order <= 6 ? value.order : 3,
+      animate: typeof value?.animate === 'boolean' ? value.animate : true
+    };
+  } catch { return defaults; }
+}
+
+function savePreferences(storage, preferences) {
+  if (!storage) return false;
+  try {
+    storage.setItem(PREFERENCES_KEY,JSON.stringify({order:preferences.order,animate:preferences.animate}));
+    return true;
+  } catch { return false; }
+}
 
 // ===== app.js =====
+
 
 
 
@@ -725,6 +803,46 @@ function makePieceGeometry(piece,n){
 }
 
 let N=3,pieces=[],meshes=[],pickMeshes=[],moves=[],redo=[],busy=false,scrambleRunning=false,autoWide=false,turnCount=0;
+let storage=null;
+try { storage=window.localStorage; } catch { /* Storage disabled/private mode: gameplay still works. */ }
+const startupPreferences=loadPreferences(storage);
+function saveCurrentGame(){ return saveGame(storage,N,moves,redo); }
+function saveCurrentPreferences(){ return savePreferences(storage,{order:Number($('#order').value),animate:$('#scrambleAnimate').checked}); }
+function syncPieceMesh(piece){
+  piece.mesh.quaternion.copy(matrixQuaternion(piece.state));
+  piece.mesh.position.set(0,0,0);
+}
+function rotateState(move, chosen, updateMeshes=true){
+  const axis=move.type==='orth'?unitAxis(move.axis):new THREE.Vector3(...move.corner).normalize();
+  const angle=move.sign*(move.type==='orth'?Math.PI/2:Math.PI*2/3);
+  const rot=matFromRotation(axis,angle);
+  for(const p of chosen){
+    p.state=mulM(rot,p.state);
+    if(updateMeshes)syncPieceMesh(p);
+  }
+}
+function restoreSavedGame(order){
+  const saved=loadGame(storage,order);
+  if(!saved)return false;
+  try{
+    // Replay moves in the same order as originally played. Redo steps remain
+    // unapplied, so undo/redo continue working after a reload or order switch.
+    for(const move of saved.moves){
+      const chosen=selectedPieces(move);
+      if(!chosen.length)throw new Error('Saved move selects no pieces');
+      rotateState(move,chosen,false);
+    }
+    for(const p of pieces)syncPieceMesh(p);
+    moves=saved.moves;redo=saved.redo;turnCount=moves.length;
+    return true;
+  }catch(err){
+    console.warn('Stored OrthoSkew game could not be restored:',err);
+    for(const p of pieces){p.state=identity();syncPieceMesh(p);}
+    moves=[];redo=[];turnCount=0;
+    return false;
+  }
+}
+
 let radius=8.7;
 // Free quaternion camera: no pitch clamp, no fixed-world-up pole, supports roll.
 const viewOrientation=new THREE.Quaternion();
@@ -790,7 +908,9 @@ async function createPuzzle(order){
     }
     radius=N*2.68+0.45;
     updateCamera();
-    statusToast(`${N} 阶魔方已就绪，开始挑战吧`);
+    const restored=restoreSavedGame(N);
+    statusToast(restored ? `已恢复 ${N} 阶魔方进度` : `${N} 阶魔方已就绪，开始挑战吧`);
+    saveCurrentGame();
   }catch(err){console.error(err);statusToast('加载失败，请刷新页面重试');}
   $('#loading').classList.remove('show');
   busy=false;refreshStatus();
@@ -867,7 +987,7 @@ function gestureToMove(original,ev,wide){
     const axis=[0,1,2].find(i=>Math.abs(spin.getComponent(i))>.5);
     const side=center.getComponent(axis)<0?-1:1;
     const depth=Math.floor(half()-side*center.getComponent(axis)+1e-6);
-    return {type:'orth',axis,side,depth,wide,sign:spin.getComponent(axis)>0?1:-1};
+    return {type:'orth',axis,side,depth,wide:effectiveWide({type:'orth',depth,wide},N),sign:spin.getComponent(axis)>0?1:-1};
   }
   // V1.1 behavior remains the default. A middle skew layer is selected
   // ONLY when the ACTUAL painted triangular petal touches an outer face edge
@@ -898,13 +1018,10 @@ function applyMove(move,animation=true,record=true,duration=240){
   const rot=matFromRotation(axis,angle);
   return new Promise(resolve=>{
   const finish=()=>{
-    for(const p of chosen){
-      p.state=mulM(rot,p.state);
-      p.mesh.quaternion.copy(matrixQuaternion(p.state));
-      p.mesh.position.set(0,0,0);
-    }
+    rotateState(move,chosen);
     busy=false;
     if(record){moves.push({...move});redo=[];turnCount++;}
+    saveCurrentGame();
     refreshStatus();
     resolve(true);
   };
@@ -928,22 +1045,51 @@ function applyMove(move,animation=true,record=true,duration=240){
 }
 async function scramble(){
   if(busy||scrambleRunning)return;
-  scrambleRunning=true;
-  refreshStatus();
-  const sequence=generateStandardScramble(N);
+  // Avoid a focused button being repeatedly disabled/enabled during an instant
+  // scramble, which can cause browser focus-scroll / visual-viewport jumps.
+  $('#btnScramble').blur();
+  const sequence=generateStandardScramble(N,Math.random,moves.at(-1)??null);
   const count=sequence.length;
   const animate=$('#scrambleAnimate').checked;
+  scrambleRunning=true;
   let done=0;
+  if(!animate){
+    // A true batch: do not render/refresh/disable/re-enable between each step.
+    // The old async loop caused dozens of DOM/focus changes in one frame.
+    try{
+      for(const move of sequence){
+        const chosen=selectedPieces(move);
+        if(!chosen.length)throw new Error(`打乱步骤未选中零件：${JSON.stringify(move)}`);
+        rotateState(move,chosen,false);
+        moves.push({...move});done++;
+      }
+      for(const p of pieces)syncPieceMesh(p);
+      redo=[];turnCount=moves.length;
+      saveCurrentGame();
+      statusToast(`已打乱 ${done} 步 · 可撤销`);
+    }catch(error){
+      console.error(error);
+      for(const p of pieces)syncPieceMesh(p);
+      if(done){redo=[];turnCount=moves.length;saveCurrentGame();}
+      statusToast('打乱未能完成，请重试');
+    }finally{
+      scrambleRunning=false;
+      refreshStatus();
+    }
+    return;
+  }
+  refreshStatus();
   try{
     for(const move of sequence){
-      // Every orthogonal or diagonal slice has exterior pieces. Fail loudly
-      // instead of silently shortening a standard scramble.
       if(!selectedPieces(move).length)throw new Error(`打乱步骤未选中零件：${JSON.stringify(move)}`);
-      if(!await applyMove(move,animate,true,animate?120:0))throw new Error("打乱步骤执行失败");
+      if(!await applyMove(move,true,true,120))throw new Error('打乱步骤执行失败');
       done++;
-      if(animate)statusToast(`正在打乱 · ${done} / ${count}`);
+      statusToast(`正在打乱 · ${done} / ${count}`);
     }
     statusToast(`已打乱 ${done} 步 · 可撤销`);
+  }catch(error){
+    console.error(error);
+    statusToast('打乱未能完成，请重试');
   }finally{
     scrambleRunning=false;
     refreshStatus();
@@ -951,7 +1097,7 @@ async function scramble(){
 }
 function undoMove(){if(busy||scrambleRunning||!moves.length)return;const move=moves.pop();redo.push(move);turnCount=Math.max(0,turnCount-1);applyMove({...move,sign:-move.sign},true,false);statusToast('已撤销上一步');}
 function redoMove(){if(busy||scrambleRunning||!redo.length)return;const move=redo.pop();moves.push(move);turnCount++;applyMove(move,true,false);statusToast('已重做上一步');}
-function resetPuzzle(){if(busy||scrambleRunning)return;for(const p of pieces){p.state=identity();p.mesh.quaternion.identity();p.mesh.position.set(0,0,0);}moves=[];redo=[];turnCount=0;refreshStatus('魔方已重置');}
+function resetPuzzle(){if(busy||scrambleRunning)return;for(const p of pieces){p.state=identity();p.mesh.quaternion.identity();p.mesh.position.set(0,0,0);}moves=[];redo=[];turnCount=0;saveCurrentGame();refreshStatus('魔方已重置');}
 function resetCamera(){defaultViewOrientation();radius=N*2.68+.45;updateCamera();statusToast('已恢复默认视角');}
 function handleDown(ev){
   if(ev.button!==0&&ev.button!==2)return;
@@ -1028,7 +1174,8 @@ window.addEventListener('keydown',ev=>{
     if(ev.key.toLowerCase()==='e')rollCamera(Math.PI/12);
   }
 });
-$('#order').addEventListener('change',e=>createPuzzle(Number(e.target.value)));
+$('#order').addEventListener('change',e=>{saveCurrentPreferences();createPuzzle(Number(e.target.value));});
+$('#scrambleAnimate').addEventListener('change',saveCurrentPreferences);
 $('#btnScramble').addEventListener('click',scramble);
 $('#btnUndo').addEventListener('click',undoMove);
 $('#btnRedo').addEventListener('click',redoMove);
@@ -1054,7 +1201,9 @@ $('#closeHelp').addEventListener('click',()=>$('#helpDialog').close());
 $('#helpDialog').addEventListener('click',e=>{if(e.target===$('#helpDialog'))e.target.close();});
 const observer=new ResizeObserver(()=>{const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);});observer.observe(stage);
 function render(){requestAnimationFrame(render);renderer.render(scene,camera);}render();
-updateCamera();createPuzzle(3);
+$('#order').value=String(startupPreferences.order);
+$('#scrambleAnimate').checked=startupPreferences.animate;
+updateCamera();createPuzzle(startupPreferences.order);
 
 </script>
 </head>
@@ -1069,7 +1218,7 @@ updateCamera();createPuzzle(3);
       </div>
       <div class="header-right">
         <button id="btnSidebarToggle" class="panel-toggle" type="button" aria-controls="gameSidebar" aria-expanded="true" aria-label="收起操作面板" title="收起操作面板"><span class="panel-toggle-icon" aria-hidden="true">◂</span><span class="panel-toggle-text">收起面板</span></button>
-        <span class="build-tag">V1.11</span>
+        <span class="build-tag">V1.12</span>
         <button class="icon-button" id="btnHelp" title="操作说明" aria-label="操作说明">?<span class="desktop-only"> 操作指南</span></button>
       </div>
     </header>
