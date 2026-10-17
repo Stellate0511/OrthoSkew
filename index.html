@@ -1,0 +1,928 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a101e" />
+  <meta name="description" content="OrthoSkew 正斜魔方：转动普通层与斜向层，挑战 2～6 阶魔方。" />
+  <title>OrthoSkew · 正斜魔方</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+:root{color-scheme:dark;--bg:#090f1a;--panel:#101a29;--line:#273347;--text:#e9eef9;--muted:#8b9aaf;--teal:#72edcf;--blue:#8faefa;font-family:'DM Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+*{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;background:var(--bg);color:var(--text)}button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.37;cursor:default}button:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:3px}#app{height:100dvh;min-height:635px;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(ellipse at 20% 80%,#172237 0,transparent 55%),#090e18}
+.topbar{height:80px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 31px;border-bottom:1px solid #253044;position:relative;z-index:2;background:#0b1320de}.brand{display:flex;gap:13px;align-items:center}.logo{width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:#172236;border:1px solid #2f425f;border-radius:13px}.brand-name{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;letter-spacing:1.3px;line-height:1.1}.brand-name span{color:#79baf6}.brand-sub{color:#6b8099;font-size:10px;font-weight:700;letter-spacing:1.65px;margin-top:5px}.header-right{display:flex;align-items:center;gap:18px}.build-tag{color:#8fa4b7;letter-spacing:1px;font:600 10px 'Space Grotesk',sans-serif}.icon-button{border:1px solid #324056;color:#ccd6e5;background:#182235;border-radius:11px;font-weight:700;padding:10px 13px}.main-layout{display:flex;min-height:0;flex:1}#stage{position:relative;flex:1;min-width:0;overflow:hidden;isolation:isolate;background:radial-gradient(ellipse at 50% 46%,#2237528c 0%,#111c2d88 32%,#0d1624 65%,#0a1220 100%)}#stage::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 98%,#a4c3fa0b 100%),linear-gradient(0deg,transparent 98%,#a4c3fa0b 100%);background-size:52px 52px;opacity:.28;pointer-events:none}#stage::after{content:'';pointer-events:none;position:absolute;inset:24px;border:1px solid #26354c70;border-radius:14px}.stage-glow{position:absolute;left:50%;top:49%;width:54%;aspect-ratio:1;transform:translate(-50%,-50%);background:radial-gradient(circle,#5b83bf18 0,transparent 70%);pointer-events:none}.cube-canvas{position:absolute;z-index:1;inset:0;width:100%;height:100%;touch-action:none;cursor:grab;outline:0}.cube-canvas.grabbing{cursor:grabbing}.stage-bottom-left{position:absolute;bottom:43px;left:52px;right:30px;z-index:2;display:flex;align-items:center;gap:13px;pointer-events:none}.status-pill{font-size:11px;white-space:nowrap;border:1px solid #285a56;color:#82e9d0;background:#14332f95;padding:8px 11px;border-radius:40px;font-weight:600}.status-pill.unsolved{background:#3c302580;color:#ffc68a;border-color:#6b5140}.stage-message{color:#99aabe;font-size:12px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}.stage-bottom-right{position:absolute;bottom:43px;right:45px;z-index:2;color:#71839a;font-size:11px;pointer-events:none}.crosshair{font-size:17px;color:#87a1bf;vertical-align:middle;margin-right:7px}.loading{pointer-events:none;position:absolute;inset:0;z-index:8;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:#0c1728b8;opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s}.loading.show{opacity:1;visibility:visible}.loading p{font-size:13px;color:#ccd9eb}.loader{height:34px;width:34px;border:2px solid #3a5575;border-top-color:var(--teal);border-radius:50%;animation:spin .7s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.sidebar{width:356px;flex:none;overflow-y:auto;overflow-x:hidden;background:#101a2a;border-left:1px solid #2b3648;padding:29px 26px 20px;scrollbar-color:#33445e transparent;scrollbar-width:thin}.panel{padding-bottom:25px;margin-bottom:24px;border-bottom:1px solid #2a364a}.eyebrow{color:#8aa0bd;font:700 10px 'Space Grotesk',sans-serif;letter-spacing:1.6px;margin:0 0 17px}.about-panel h1{font-size:35px;letter-spacing:-1.2px;font-weight:700;line-height:1.17;margin:0 0 15px}.about-panel h1 em{color:#72e6c9;font-style:normal}.intro{font-size:12.5px;color:#97a7ba;line-height:1.95;margin:0 0 17px}.intro strong{color:#d0d9ea;font-weight:600}.axis-tags{display:flex;gap:8px}.axis-tags span{display:flex;gap:7px;align-items:center;border:1px solid #39445a;border-radius:6px;padding:8px 9px;color:#aab8cf;font:600 9px 'Space Grotesk',sans-serif;letter-spacing:.65px}.square-symbol{height:9px;width:9px;border:1.5px solid #81b5ff}.diamond-symbol{height:9px;width:9px;border:1.5px solid #74e9ca;transform:rotate(45deg)}.setting-row{display:flex;align-items:center;justify-content:space-between;gap:15px}.setting-row label{font-size:13px;font-weight:600;color:#c7d4e3}.select-shell{position:relative}.select-shell select{appearance:none;padding:11px 36px 11px 15px;background:#1d2b40;border:1px solid #3a4a63;color:#edf3ff;border-radius:9px;min-width:150px;font-size:13px;cursor:pointer}.select-shell span{pointer-events:none;position:absolute;right:13px;top:7px;font-size:21px;color:#8da3bd}.stats{display:flex;align-items:center;gap:30px;margin:23px 0}.stats>div:not(.stats-divider){display:flex;flex-direction:column;gap:3px}.stat-value{font:700 27px 'Space Grotesk',sans-serif;letter-spacing:-.5px}.stat-label{font-size:11px;color:#8196ae}.stats-divider{height:37px;width:1px;background:#334155}.wide-button{background:#18283d;border:1px solid #334966;border-radius:10px;width:100%;display:flex;align-items:center;text-align:left;padding:11px 13px;color:#e2eaf9;font-size:12px;font-weight:700;gap:8px}.wide-icon{font-size:19px;color:#88aaff}.wide-button small{margin-left:auto;border:1px solid #405570;padding:3px 5px;border-radius:4px;color:#9bb0ca;font-size:9px}.switch{width:30px;height:17px;border-radius:20px;background:#49566b;padding:2px;transition:background .2s}.switch b{height:13px;width:13px;background:#d0d8e7;border-radius:50%;display:block;transition:transform .2s}.wide-button.active{border-color:#60bbae;background:#193a40}.wide-button.active .switch{background:#32a98f}.wide-button.active .switch b{transform:translateX(13px);background:#fff}.setting-hint{font-size:11px;color:#77899f;line-height:1.65;margin:10px 3px 0}.controls-panel{padding-bottom:23px;margin-bottom:19px}.button{border-radius:10px;border:1px solid #3b4b62;transition:background .15s,transform .15s;min-height:40px}.button:active:not(:disabled){transform:scale(.98)}.button-primary{width:100%;height:48px;background:linear-gradient(110deg,#62dcbc,#6bacdc);border:0;color:#08243b;font-weight:800;text-align:left;padding:0 15px;display:flex;align-items:center;gap:9px;box-shadow:0 10px 30px #40b8b426}.button-primary:hover{filter:brightness(1.08)}.button-icon{font-size:24px;line-height:1}.button-arrow{margin-left:auto;font-size:16px}.button-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}.button-secondary{background:#182538;color:#c7d6e6;font-size:12px;font-weight:600}.button-secondary:hover:not(:disabled){background:#263750}.howto{padding:0 3px}.hint-title{font:700 10px 'Space Grotesk',sans-serif;letter-spacing:1.35px;color:#8298b2;display:flex;justify-content:space-between;margin-bottom:14px}.hint-title span{font-size:15px}.hint-row{display:flex;align-items:center;gap:11px;margin:9px 0}.hint-row>span{width:30px;color:#83a8dc;text-align:center;font-size:17px}.hint-row p{margin:0;color:#8e9fb7;font-size:11px}.hint-row strong{color:#bdd1e6;font-weight:600}
+#helpDialog{width:min(540px,calc(100vw - 34px));border:1px solid #4b6281;border-radius:17px;padding:0;background:#121f30;color:#dae6f6;box-shadow:0 20px 100px #000b;max-height:min(85dvh,750px);overflow:auto}#helpDialog::backdrop{background:#050911bd;backdrop-filter:blur(7px)}.dialog-inner{padding:27px}.dialog-head{display:flex;align-items:flex-start;justify-content:space-between}.dialog-head h2{margin:0 0 14px;font-size:26px}.dialog-inner>p{font-size:13px;line-height:1.85;color:#b7c5d9}.dialog-inner strong{color:#f2f8ff}.close-dialog{font-size:26px;color:#b9cce4;background:#26364b;border:1px solid #394e68;border-radius:9px;width:36px;height:36px}.guide-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:20px 0}.guide-grid>div{border-radius:12px;background:#1c2b40;border:1px solid #344963;padding:13px;display:flex;flex-direction:column;gap:8px}.guide-grid span{font-size:23px;color:#82e4cd}.guide-grid strong{font-size:13px}.guide-grid small{color:#8fa7c2;line-height:1.5}
+@media(max-width:1120px){.sidebar{width:310px;padding:26px 19px}.about-panel h1{font-size:30px}.stage-bottom-right{display:none}.stage-bottom-left{bottom:31px;left:35px}}
+@media(max-width:720px){#app{min-height:0;height:100dvh}.topbar{height:65px;padding:0 15px}.brand-name{font-size:16px}.brand-sub{font-size:8px;letter-spacing:1px}.logo{width:36px;height:36px}.header-right{gap:6px}.build-tag{display:inline;font-size:10px;letter-spacing:.4px}.icon-button{padding:8px 12px}.desktop-only{display:none}.main-layout{flex-direction:column}.sidebar{width:100%;flex:0 0 auto;max-height:260px;padding:14px 15px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}.about-panel{display:none}.panel{padding:0;margin:0;border:0}.settings-panel .eyebrow,.controls-panel .eyebrow{display:none}.settings-panel{display:flex;flex-direction:column;gap:9px}.setting-row{flex-direction:column;align-items:stretch;gap:5px}.setting-row label{font-size:10px;color:#8fa3bb}.select-shell select{width:100%;padding:9px 25px 9px 9px;min-width:0;font-size:12px}.select-shell span{top:5px}.stats{gap:10px;margin:3px 0;justify-content:space-between}.stat-value{font-size:19px}.stat-label{font-size:9px}.stats-divider{height:25px}.wide-button{padding:8px 9px;gap:6px;font-size:11px}.wide-button small{display:none}.wide-icon{font-size:15px}.setting-hint{display:none}.controls-panel{padding-top:16px}.button-primary{height:43px;font-size:12px}.button-grid{gap:7px;margin-top:7px}.button-secondary{font-size:11px;min-height:37px}.howto{display:none}#stage{order:-1;flex:1;min-height:0}.stage-bottom-left{left:18px;right:18px;bottom:18px;gap:8px}.stage-message{font-size:10px}#stage::after{inset:10px}}
+@media(max-width:380px){.sidebar{max-height:248px;padding:10px 10px 14px}.header-right{gap:3px}.brand{gap:8px}.wide-button{font-size:10px}.stat-value{font-size:17px}}
+@media(prefers-reduced-motion:reduce){.loader{animation:none}*{scroll-behavior:auto!important}}
+
+/* View roll controls and scramble animation toggle */
+.stage-roll{position:absolute;z-index:3;right:42px;top:44px;display:flex;align-items:center;gap:7px;color:#98aac0;font-size:11px}
+.stage-roll button{background:#19283eeb;border:1px solid #3a526c;color:#d4e4f6;border-radius:8px;width:36px;height:34px;font-size:21px;line-height:1;cursor:pointer}
+.stage-roll button:hover{background:#304664}
+.scramble-setting{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 1px 0;padding:9px 12px;background:#17253a;border:1px solid #2c4058;border-radius:9px;color:#b8cee0;font-size:12px;cursor:pointer}
+.scramble-setting input{position:absolute;opacity:0;width:1px;height:1px}
+.scramble-setting input:focus-visible+.switch{outline:2px solid #70e2c5;outline-offset:4px}
+.scramble-setting input:checked+.switch{background:#32a98f}
+.scramble-setting input:checked+.switch b{transform:translateX(13px);background:white}
+@media(max-width:1120px){.stage-roll{top:35px;right:24px}}
+@media(max-width:720px){.stage-roll{top:17px;right:15px}.stage-roll span{display:none}.stage-roll button{width:33px;height:32px}.scramble-setting{margin-top:7px;padding:7px 10px;font-size:11px}}
+
+
+
+  </style>
+  <!-- Direct static hosting: this import map works on GitHub Pages, with no build needed. -->
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
+  </script>
+  <script type="module">
+import * as THREE from 'three';
+
+
+// ===== geometry.js =====
+// Exact cutting-plane layout, with floating-point vertices only for rendering.
+// All puzzle state transitions use integer rotations and a fixed original geometry.
+const EPS = 1e-7;
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const norm = a => { const l = Math.hypot(...a); return a.map(v => v / l); };
+const near = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6;
+function unique(points) { const out = []; for (const p of points)
+    if (!out.some(q => near(q, p)))
+        out.push(p); return out; }
+function cleanPolygon(v) {
+    let out = [];
+    for (const p of v)
+        if (!out.length || !near(out[out.length - 1], p))
+            out.push(p);
+    if (out.length > 1 && near(out[0], out[out.length - 1]))
+        out.pop();
+    if (out.length < 3)
+        return [];
+    const a = sub(out[1], out[0]);
+    let area = 0;
+    for (let i = 2; i < out.length; i++)
+        area += Math.hypot(...cross(a, sub(out[i], out[0])));
+    return area < 1e-10 ? [] : out;
+}
+function cube(x, y, z) {
+    const X = x + 1, Y = y + 1, Z = z + 1;
+    return { faces: [
+            { v: [[x, y, z], [x, y, Z], [x, Y, Z], [x, Y, z]], tag: 'x-' },
+            { v: [[X, y, z], [X, Y, z], [X, Y, Z], [X, y, Z]], tag: 'x+' },
+            { v: [[x, y, z], [X, y, z], [X, y, Z], [x, y, Z]], tag: 'y-' },
+            { v: [[x, Y, z], [x, Y, Z], [X, Y, Z], [X, Y, z]], tag: 'y+' },
+            { v: [[x, y, z], [x, Y, z], [X, Y, z], [X, y, z]], tag: 'z-' },
+            { v: [[x, y, Z], [X, y, Z], [X, Y, Z], [x, Y, Z]], tag: 'z+' }
+        ] };
+}
+function clip(poly, n, d, positive, capTag = 'cut') {
+    const faces = [], cuts = [];
+    const signed = p => dot(n, p) - d;
+    const inside = s => positive ? s >= -EPS : s <= EPS;
+    for (const face of poly.faces) {
+        const src = face.v, dst = [];
+        for (let i = 0; i < src.length; i++) {
+            const a = src[i], b = src[(i + 1) % src.length], sa = signed(a), sb = signed(b);
+            if (inside(sa))
+                dst.push(a);
+            if ((sa < -EPS && sb > EPS) || (sa > EPS && sb < -EPS)) {
+                const t = sa / (sa - sb), v = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]), a[2] + t * (b[2] - a[2])];
+                dst.push(v);
+                cuts.push(v);
+            }
+            else if (Math.abs(sa) < EPS)
+                cuts.push(a);
+        }
+        const cv = cleanPolygon(dst);
+        if (cv.length >= 3)
+            faces.push({ v: cv, tag: face.tag });
+    }
+    const uniqueCuts = unique(cuts);
+    if (uniqueCuts.length >= 3) {
+        const outward = norm(positive ? n.map(x => -x) : n);
+        const temp = Math.abs(outward[0]) < .7 ? [1, 0, 0] : [0, 1, 0];
+        const u = norm(cross(temp, outward)), v = cross(outward, u);
+        const ctr = [0, 0, 0];
+        for (const p of uniqueCuts) {
+            ctr[0] += p[0];
+            ctr[1] += p[1];
+            ctr[2] += p[2];
+        }
+        ;
+        ctr.forEach((_, i) => ctr[i] /= uniqueCuts.length);
+        uniqueCuts.sort((a, b) => Math.atan2(dot(sub(a, ctr), v), dot(sub(a, ctr), u)) - Math.atan2(dot(sub(b, ctr), v), dot(sub(b, ctr), u)));
+        const cap = cleanPolygon(uniqueCuts);
+        if (cap.length >= 3)
+            faces.push({ v: cap, tag: capTag });
+    }
+    return { faces };
+}
+function isSolid(poly) {
+    let vol = 0;
+    for (const f of poly.faces) {
+        for (let i = 1; i < f.v.length - 1; i++)
+            vol += dot(f.v[0], cross(f.v[i], f.v[i + 1])) / 6;
+    }
+    return Math.abs(vol) > 1e-9;
+}
+function bevelCube(poly, ix, iy, iz, r, quality) {
+    // Construct a rounded small cube BEFORE diagonal cutting, so diagonal edges stay sharp.
+    const starts = [ix, iy, iz];
+    for (let ax = 0; ax < 3; ax++)
+        for (let bx = ax + 1; bx < 3; bx++)
+            for (let va = 0; va < 2; va++)
+                for (let vb = 0; vb < 2; vb++) {
+                    for (const deg of quality === 2 ? [22.5, 45, 67.5] : [45]) {
+                        const t = deg * Math.PI / 180, ca = Math.cos(t), cb = Math.sin(t);
+                        const n = [0, 0, 0];
+                        n[ax] = (va === 0 ? 1 : -1) * ca;
+                        n[bx] = (vb === 0 ? 1 : -1) * cb;
+                        const a0 = va === 0 ? starts[ax] : -(starts[ax] + 1);
+                        const b0 = vb === 0 ? starts[bx] : -(starts[bx] + 1);
+                        const lower = r * (ca + cb - 1) + ca * a0 + cb * b0;
+                        poly = clip(poly, n, lower, true, 'bevel');
+                    }
+                }
+    return poly;
+}
+// A colored exterior piece remains on the cube boundary under every legal
+// 90° or 120° twist. Thus a surface-only puzzle is a closed permutation system.
+function hasColoredFace(poly, x, y, z, N) {
+    const boundaryTags = new Set();
+    if (x === 0)
+        boundaryTags.add('x-');
+    if (x === N - 1)
+        boundaryTags.add('x+');
+    if (y === 0)
+        boundaryTags.add('y-');
+    if (y === N - 1)
+        boundaryTags.add('y+');
+    if (z === 0)
+        boundaryTags.add('z-');
+    if (z === N - 1)
+        boundaryTags.add('z+');
+    return poly.faces.some(face => boundaryTags.has(face.tag));
+}
+function generatePieces(N, bevel = .05, quality = 1, onProgress = null, surfaceOnly = false) {
+    const pieces = [], extent = N / 2;
+    for (let x = 0; x < N; x++)
+        for (let y = 0; y < N; y++)
+            for (let z = 0; z < N; z++) {
+                // Skip whole core cells; there is nothing painted on their boundary.
+                if (surfaceOnly && x > 0 && x < N - 1 && y > 0 && y < N - 1 && z > 0 && z < N - 1)
+                    continue;
+                let polys = [bevel > 0 ? bevelCube(cube(x, y, z), x, y, z, bevel, quality) : cube(x, y, z)];
+                // Four *unoriented* body diagonal axes. Their opposite vertices generate
+                // exactly the same set of planes, so cut each plane once only.
+                // Every unit cube has exactly two interior integer planes of each family;
+                // the other N-dependent planes miss it or lie on its boundary.
+                for (let mask = 0; mask < 4; mask++) {
+                    const vertex = [mask & 1 ? N : 0, mask & 2 ? N : 0, 0];
+                    const minD = (mask & 1 ? N - x - 1 : x) + (mask & 2 ? N - y - 1 : y) + z;
+                    const signs = vertex.map(v => v === 0 ? 1 : -1);
+                    for (const k of [minD + 1, minD + 2]) {
+                        const offset = k - vertex.filter(v => v === N).length * N;
+                        const next = [];
+                        for (const p of polys) {
+                            const below = clip(p, signs, offset, false), above = clip(p, signs, offset, true);
+                            // Prune immediately: later clips can never create new painted faces.
+                            if (isSolid(below) && (!surfaceOnly || hasColoredFace(below, x, y, z, N)))
+                                next.push(below);
+                            if (isSolid(above) && (!surfaceOnly || hasColoredFace(above, x, y, z, N)))
+                                next.push(above);
+                        }
+                        polys = next;
+                    }
+                }
+                for (const poly of polys) {
+                    const points = unique(poly.faces.flatMap(f => f.v));
+                    const center = [0, 0, 0];
+                    for (const p of points)
+                        for (let d = 0; d < 3; d++)
+                            center[d] += p[d];
+                    for (let d = 0; d < 3; d++)
+                        center[d] = center[d] / points.length - extent;
+                    pieces.push({ id: pieces.length, cell: [x, y, z], faces: poly.faces, center });
+                }
+                onProgress?.((x * N * N + y * N + z + 1) / (N * N * N), pieces.length);
+            }
+    return pieces;
+}
+function debugVolume(poly) { let v = 0; for (const f of poly.faces)
+    for (let i = 1; i < f.v.length - 1; i++)
+        v += dot(f.v[0], cross(f.v[i], f.v[i + 1])) / 6; return Math.abs(v); }
+
+
+// ===== layers.js =====
+/** Layer indices are zero-based. Coordinates are centered on the whole cube. */
+function skewDepth(center, corner, order) {
+  return Math.floor(corner.reduce((sum, sign, i) => sum + order / 2 - sign * center[i], 0) + 1e-6);
+}
+function isCentralSkewLayer(order, depth) {
+  return order % 2 === 1 && depth === Math.floor(3 * order / 2);
+}
+function isCentralOrthLayer(order, depth) {
+  return order % 2 === 1 && depth === Math.floor(order / 2);
+}
+function effectiveWide(move, order) {
+  if (!move.wide) return false;
+  if (move.type === 'corner') return !isCentralSkewLayer(order, move.depth);
+  if (move.type === 'orth') return !isCentralOrthLayer(order, move.depth);
+  return false;
+}
+function containsCenter(center, move, order) {
+  const depth = move.type === 'orth'
+    ? Math.floor(order/2 - move.side * center[move.axis] + 1e-6)
+    : skewDepth(center, move.corner, order);
+  return effectiveWide(move, order) ? depth <= move.depth : depth === move.depth;
+}
+/**
+ * V1.1 behavior: the two candidate axes lie at the endpoints of the face
+ * diagonal PERPENDICULAR to the drag. Choose the closer candidate in the
+ * original version (including its tie-breaking order). Only an outward
+ * gesture made from a painted petal touching the actual face perimeter
+ * changes this to the farther one.
+ *
+ * face: orthonormal signed cardinal vectors (normal,u,v) as 3-element arrays
+ * pieceCenter: current 3D piece center in cube-centered coordinates.
+ */
+function chooseSkewCorner(face, pieceCenter, dU, dV, order, outward = false) {
+  const candidates = dU * dV > 0 ? [[-1, 1], [1, -1]] : [[-1, -1], [1, 1]];
+  const h = order / 2;
+  let chosen = null;
+  let best = outward ? -Infinity : Infinity;
+  for (const [su, sv] of candidates) {
+    const corner = [0, 1, 2].map(i => h * (face.normal[i] + su * face.u[i] + sv * face.v[i]));
+    const difference = corner.map((c, i) => pieceCenter[i] - c);
+    const distance = Math.abs(difference.reduce((s, x, i) => s + x * face.u[i], 0))
+      + Math.abs(difference.reduce((s, x, i) => s + x * face.v[i], 0));
+    if (outward ? distance > best : distance < best) {
+      chosen = corner.map(Math.sign);
+      best = distance;
+    }
+  }
+  return chosen;
+}
+
+/**
+ * Find the ONE original-grid perimeter edge actually touched by the pressed
+ * painted triangular PETAL, not merely by its 1x1 grid square.
+ *
+ * `patchCenter` is the centroid of the actual painted polygon transformed
+ * into the cube's CURRENT pose (cube-centered world coordinates). The four
+ * triangular petals of a square have their centroids respectively to the
+ * left/right/top/bottom of the grid-square center. This remains true after
+ * the small original-grid bevel clips the polygon corners.
+ *
+ * For example, in the upper-left corner square only the TOP petal touches
+ * the top cube edge and only the LEFT petal touches the left cube edge.
+ * The other two petals return null, even though their square is on the rim.
+ */
+function perimeterEdgeOfPatch(patchCenter, face, order) {
+  const dot = (a, b) => a.reduce((sum, x, i) => sum + x * b[i], 0);
+  const h = order / 2;
+  const u = dot(patchCenter, face.u) + h;
+  const v = dot(patchCenter, face.v) + h;
+  const cu = Math.max(0, Math.min(order - 1, Math.floor(u)));
+  const cv = Math.max(0, Math.min(order - 1, Math.floor(v)));
+  const du = u - (cu + .5);
+  const dv = v - (cv + .5);
+  // Diagonal seams belong to separate pieces; a real polygon centroid does
+  // not lie on either seam. No arbitrary pointer-position threshold is used.
+  if (Math.abs(du) > Math.abs(dv)) {
+    if (du < 0 && cu === 0) return 'u-';
+    if (du > 0 && cu === order - 1) return 'u+';
+  } else {
+    if (dv < 0 && cv === 0) return 'v-';
+    if (dv > 0 && cv === order - 1) return 'v+';
+  }
+  return null;
+}
+
+/**
+ * A middle-slice outward flick requires BOTH the actual pressed triangle to
+ * touch the outer edge AND the diagonal drag to point past that SAME edge.
+ * Every other gesture remains V1.1-compatible.
+ */
+function isOutwardEdgeFlick(petalEdge, dU, dV) {
+  return (petalEdge === 'u-' && dU < 0)
+    || (petalEdge === 'u+' && dU > 0)
+    || (petalEdge === 'v-' && dV < 0)
+    || (petalEdge === 'v+' && dV > 0);
+}
+
+
+// ===== picking.js =====
+// Pick a visible surface without looking through a nearer chamfer or cut face.
+// Coordinates are cube-centered world space. No Three.js dependency: regression
+// tests can exercise exactly the same logic used by the browser.
+const FACE_PICK_TOLERANCE = 0.085; // Small-cube bevel is 0.06 world units.
+
+function classifyVisibleFace(point, eye, faceDefs, half, tolerance = FACE_PICK_TOLERANCE) {
+  let best = null;
+  let bestScore = -Infinity;
+  for (const face of faceDefs) {
+    const i = face.axis;
+    const d = Math.abs(point[i] - face.sign * half);
+    if (d > tolerance) continue;
+    // Reject rear faces, including when the ray traveled through a seam.
+    const exposure = face.sign * (eye[i] - point[i]);
+    if (exposure <= 0) continue;
+    // Prefer the closest cube face; resolve chamfer/edge ties by visibility.
+    const score = -d + 1e-4 * exposure;
+    if (score > bestScore) {
+      bestScore = score;
+      best = face;
+    }
+  }
+  return best;
+}
+
+function pickVisibleSurface(hits, eye, faceDefs, half, tolerance = FACE_PICK_TOLERANCE) {
+  // CRITICAL: the raycaster returns near-to-far intersections. Never skip a
+  // nearer cut/chamfer surface to select an occluded piece behind it.
+  if (!hits.length) return null;
+  const hit = hits[0];
+  const point = Array.isArray(hit.point) ? hit.point : hit.point.toArray();
+  const face = classifyVisibleFace(point, eye, faceDefs, half, tolerance);
+  return face ? { hit, face } : null;
+}
+
+
+// ===== solved.js =====
+/** Visual solved status: every external face is monochrome, regardless of
+ * global cube rotation or of exchanges between same-color triangular petals.
+ * We use the sticker's original color tag, NOT polygon floating point normals.
+ */
+function isSolvedByStickers(pieces) {
+  if (!pieces.length) return false;
+  const colorsOnWorldFace = new Map();
+  for (const piece of pieces) {
+    for (const patch of piece.coloredPatches) {
+      const n = transformDirection(piece.state, patch.normal);
+      const axis = [0, 1, 2].reduce((best, i) =>
+        Math.abs(n[i]) > Math.abs(n[best]) ? i : best, 0);
+      if (Math.abs(n[axis]) < .9999) return false;
+      const face = 'xyz'[axis] + (n[axis] > 0 ? '+' : '-');
+      const prev = colorsOnWorldFace.get(face);
+      if (prev !== undefined && prev !== patch.color) return false;
+      colorsOnWorldFace.set(face, patch.color);
+    }
+  }
+  return colorsOnWorldFace.size === 6 && new Set(colorsOnWorldFace.values()).size === 6;
+}
+function transformDirection(m, v) {
+  return [m[0]*v[0]+m[1]*v[1]+m[2]*v[2],
+          m[3]*v[0]+m[4]*v[1]+m[5]*v[2],
+          m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];
+}
+
+
+// ===== app.js =====
+
+
+
+
+
+const $ = (sel) => document.querySelector(sel);
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+renderer.setSize(stage.clientWidth, stage.clientHeight, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.45;
+renderer.domElement.setAttribute('aria-label', '可交互的三维正斜魔方');
+renderer.domElement.classList.add('cube-canvas');
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(39, 1, 0.02, 500);
+const pieceRoot = new THREE.Group();
+scene.add(pieceRoot);
+scene.add(new THREE.HemisphereLight(0xe8efff, 0x253044, 2.2));
+const key = new THREE.DirectionalLight(0xffffff, 3.0);
+key.position.set(-4, 9, 12); scene.add(key);
+const rim = new THREE.DirectionalLight(0xb1caff, 2.1);
+rim.position.set(10, 4, -8); scene.add(rim);
+const fill = new THREE.DirectionalLight(0xffe0bd, .7);
+fill.position.set(-8,-6,-4); scene.add(fill);
+
+const palette = {
+  'x+': new THREE.Color('#f05c6e'),
+  'x-': new THREE.Color('#fa933e'),
+  'y+': new THREE.Color('#f6f7fd'),
+  'y-': new THREE.Color('#ffe33f'),
+  'z+': new THREE.Color('#5fe1b5'),
+  'z-': new THREE.Color('#589df1'),
+  cut: new THREE.Color('#151d2a'),
+  bevel: new THREE.Color('#283141'),
+  seam: new THREE.Color('#09111b')
+};
+// Two-material pipeline: the plastic body receives realistic directional
+// lighting, but the six painted face colors (and the fine X-seams) remain
+// colorimetrically stable at any orientation. This prevents a bottom yellow
+// face from becoming orange when the camera is orbited underneath the cube.
+const bodyMaterial = new THREE.MeshPhysicalMaterial({
+  vertexColors: true, roughness: .34, metalness: .04,
+  clearcoat: .28, clearcoatRoughness: .3, side: THREE.DoubleSide
+});
+const paintMaterial = new THREE.MeshBasicMaterial({
+  vertexColors: true, toneMapped: false, side: THREE.DoubleSide
+});
+const pieceMaterials = [bodyMaterial, paintMaterial];
+const scratchRay = new THREE.Raycaster();
+const faceDefs = [
+  {axis:0,sign:1,u:[0,0,-1],v:[0,1,0]},
+  {axis:0,sign:-1,u:[0,0,1],v:[0,1,0]},
+  {axis:1,sign:1,u:[1,0,0],v:[0,0,-1]},
+  {axis:1,sign:-1,u:[1,0,0],v:[0,0,1]},
+  {axis:2,sign:1,u:[1,0,0],v:[0,1,0]},
+  {axis:2,sign:-1,u:[-1,0,0],v:[0,1,0]}
+].map(f=>({...f,normal:new THREE.Vector3(...[0,1,2].map(i=>i===f.axis?f.sign:0)),u:new THREE.Vector3(...f.u),v:new THREE.Vector3(...f.v)}));
+const identity = ()=>[1,0,0,0,1,0,0,0,1];
+function applyM(m,v){return new THREE.Vector3(m[0]*v.x+m[1]*v.y+m[2]*v.z,m[3]*v.x+m[4]*v.y+m[5]*v.z,m[6]*v.x+m[7]*v.y+m[8]*v.z);}
+function mulM(a,b){const o=Array(9).fill(0);for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)o[3*i+j]+=a[3*i+k]*b[3*k+j];return o;}
+function matrixQuaternion(m){const a=new THREE.Matrix4().set(m[0],m[1],m[2],0,m[3],m[4],m[5],0,m[6],m[7],m[8],0,0,0,0,1);return new THREE.Quaternion().setFromRotationMatrix(a);}
+function matFromRotation(axis,angle){const t=new THREE.Matrix4().makeRotationAxis(axis,angle).elements;return [t[0],t[4],t[8],t[1],t[5],t[9],t[2],t[6],t[10]].map(n=>Math.round(n));}
+function polygonNormal(v){const a=v[0],b=v[1],c=v[2];return new THREE.Vector3(b[0]-a[0],b[1]-a[1],b[2]-a[2]).cross(new THREE.Vector3(c[0]-a[0],c[1]-a[1],c[2]-a[2])).normalize();}
+function isOuter(face,cell,n){switch(face){case'x-':return cell[0]===0;case'x+':return cell[0]===n-1;case'y-':return cell[1]===0;case'y+':return cell[1]===n-1;case'z-':return cell[2]===0;case'z+':return cell[2]===n-1;default:return false;}}
+function makePieceGeometry(piece,n){
+  // Build two contiguous draw groups instead of per-face groups. This keeps
+  // the single mesh/piece picking and animation model, and caps each piece
+  // at two draw calls even if it carries multiple color patches.
+  const buckets=[
+    {positions:[], normals:[], colors:[]}, // physically lit black body
+    {positions:[], normals:[], colors:[]}  // unlit color stickers + seams
+  ];
+  const outerNormals=[],coloredPatches=[];
+  const add=(a,b,c,norm,color,group=0)=>{
+    const {positions,normals,colors}=buckets[group];
+    for(const p of [a,b,c]){
+      positions.push(p[0]-n/2,p[1]-n/2,p[2]-n/2);
+      normals.push(norm.x,norm.y,norm.z);
+      colors.push(color.r,color.g,color.b);
+    }
+  };
+  for(const face of piece.faces){
+    if(face.v.length<3)continue;
+    const normal=polygonNormal(face.v);
+    const exposed=isOuter(face.tag,piece.cell,n);
+    const color=exposed?palette[face.tag]:face.tag==='bevel'?palette.bevel:palette.cut;
+    if(exposed){
+      const flat=[normal.x,normal.y,normal.z];
+      if(!outerNormals.some(x=>x.every((y,i)=>y===flat[i])))outerNormals.push(flat);
+      const ctr=[0,0,0];
+      for(const v of face.v)for(let i=0;i<3;i++)ctr[i]+=v[i]-n/2;
+      for(let i=0;i<3;i++)ctr[i]/=face.v.length;
+      coloredPatches.push({normal:flat,center:ctr,color:face.tag});
+    }
+    for(let i=1;i<face.v.length-1;i++)add(face.v[0],face.v[i],face.v[i+1],normal,color,exposed?1:0);
+    if(exposed){
+      // Fine graphite lines on diagonals; original square boundaries already have bevel gaps.
+      // On each original square, diagonal X-cuts are 1.5x thicker.
+      // Leave the orthogonal grid edges at their original width.
+      const offset=.0014;
+      for(let j=0;j<face.v.length;j++){
+        const a=face.v[j],b=face.v[(j+1)%face.v.length];
+        const av=new THREE.Vector3(...a),bv=new THREE.Vector3(...b),edge=bv.clone().sub(av);
+        if(edge.lengthSq()<1e-12)continue;
+        const diagonal=[edge.x,edge.y,edge.z].filter(c=>Math.abs(c)>1e-5).length>=2;
+        const w=diagonal?.00825:.0055;
+        const inward=new THREE.Vector3().crossVectors(normal,edge).normalize().multiplyScalar(w);
+        const off=normal.clone().multiplyScalar(offset);
+        const a1=av.clone().add(off),b1=bv.clone().add(off);
+        const a2=a1.clone().add(inward),b2=b1.clone().add(inward);
+        add(a1.toArray(),b1.toArray(),b2.toArray(),normal,palette.seam,1);
+        add(a1.toArray(),b2.toArray(),a2.toArray(),normal,palette.seam,1);
+      }
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  for(const field of ['positions','normals','colors']) {
+    // BufferGeometry attributes remain tightly packed and triangle-aligned.
+    const attr=field==='positions'?'position':field==='normals'?'normal':'color';
+    geometry.setAttribute(attr,new THREE.Float32BufferAttribute(
+      buckets[0][field].concat(buckets[1][field]),3));
+  }
+  const bodyVertices=buckets[0].positions.length/3;
+  const paintVertices=buckets[1].positions.length/3;
+  if(bodyVertices)geometry.addGroup(0,bodyVertices,0);
+  if(paintVertices)geometry.addGroup(bodyVertices,paintVertices,1);
+  geometry.computeBoundingSphere();
+  return {geometry,outerNormals,coloredPatches};
+}
+
+let N=3,pieces=[],meshes=[],pickMeshes=[],moves=[],redo=[],busy=false,scrambleRunning=false,autoWide=false,turnCount=0;
+let radius=8.7;
+// Free quaternion camera: no pitch clamp, no fixed-world-up pole, supports roll.
+const viewOrientation=new THREE.Quaternion();
+const viewAxisX=new THREE.Vector3(1,0,0),viewAxisY=new THREE.Vector3(0,1,0),viewAxisZ=new THREE.Vector3(0,0,1);
+const viewQ1=new THREE.Quaternion(),viewQ2=new THREE.Quaternion();
+function defaultViewOrientation(){
+  viewOrientation.identity().multiply(viewQ1.setFromAxisAngle(viewAxisY,.69)).multiply(viewQ2.setFromAxisAngle(viewAxisX,-.39));
+}
+defaultViewOrientation();
+let drag=null,pointers=new Map(),pinch=null;
+let cubeGeneration=0;
+const half=()=>N/2;
+function currentCenter(piece){return applyM(piece.state,piece.originalCenter);}
+function unitAxis(i){return new THREE.Vector3(i===0?1:0,i===1?1:0,i===2?1:0);}
+function selectedPieces(move){
+  return pieces.filter(p=>{
+    const c=currentCenter(p);
+    return containsCenter([c.x,c.y,c.z],move,N);
+  });
+}
+function refreshStatus(message=''){
+  $('#pieceCount').textContent=pieces.length.toLocaleString('zh-CN');
+  $('#moveCount').textContent=turnCount;
+  const locked=busy||scrambleRunning;
+  $('#btnUndo').disabled=locked||moves.length===0;
+  $('#btnRedo').disabled=locked||redo.length===0;
+  $('#btnScramble').disabled=locked;
+  $('#btnReset').disabled=locked;
+  $('#order').disabled=locked;
+  $('#btnWide').disabled=locked;
+  // A move-counter or identity-orientation test does not recognize visually
+  // solved configurations. Check the six actual color faces instead.
+  const solved=isSolvedByStickers(pieces);
+  const pill=$('#solvedLabel');pill.textContent=solved?'已还原':'已打乱';pill.classList.toggle('unsolved',!solved);
+  if(message)$('#toastText').textContent=message;
+}
+function statusToast(message){$('#toastText').textContent=message;}
+async function createPuzzle(order){
+  const myGeneration=++cubeGeneration;
+  busy=true;refreshStatus();
+  $('#loading').classList.add('show');
+  $('#loadingText').textContent=`正在加载 ${order} 阶魔方…`;
+  await new Promise(r=>setTimeout(r,35));
+  if(myGeneration!==cubeGeneration)return;
+  N=order;
+  // Only colored exterior pieces are modeled. The interior never becomes visible
+  // on the boundary after legal orthogonal or corner-axis twists.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, N<=3?1.5:N===4?1.25:1.0));
+  for(const p of pieces)p.mesh.geometry.dispose();
+  pieceRoot.clear();pieces=[];meshes=[];pickMeshes=[];moves=[];redo=[];turnCount=0;
+  try{
+    const definitions=generatePieces(N,.06,N<=4?2:1,null,true);
+    for(const shape of definitions){
+      const {geometry,outerNormals,coloredPatches}=makePieceGeometry(shape,N);
+      const mesh=new THREE.Mesh(geometry,pieceMaterials);
+      mesh.frustumCulled=false;
+      // All generated pieces have at least one colored external polygon.
+      mesh.visible=true;
+      pickMeshes.push(mesh);
+      const piece={id:shape.id,originalCenter:new THREE.Vector3(...shape.center),outerNormals,coloredPatches,state:identity(),mesh};
+      mesh.userData.piece=piece;
+      pieces.push(piece);meshes.push(mesh);pieceRoot.add(mesh);
+    }
+    radius=N*2.68+0.45;
+    updateCamera();
+    statusToast(`${N} 阶魔方已就绪，开始挑战吧`);
+  }catch(err){console.error(err);statusToast('加载失败，请刷新页面重试');}
+  $('#loading').classList.remove('show');
+  busy=false;refreshStatus();
+}
+function updateCamera(){
+  radius=THREE.MathUtils.clamp(radius,N*1.15,N*7.5);
+  camera.position.copy(viewAxisZ).multiplyScalar(radius).applyQuaternion(viewOrientation);
+  camera.up.copy(viewAxisY).applyQuaternion(viewOrientation);
+  camera.lookAt(0,0,0);
+}
+function orbit(dx,dy){
+  // Both axes are in the current camera frame, not fixed world coordinates.
+  // No clamp: the camera can pass the poles and turn fully upside-down.
+  viewOrientation.multiply(viewQ1.setFromAxisAngle(viewAxisY,-dx*.006));
+  viewOrientation.multiply(viewQ2.setFromAxisAngle(viewAxisX,-dy*.006));
+  viewOrientation.normalize();
+  updateCamera();
+}
+function rollCamera(angle){
+  // Rotation about the viewer's own line of sight.
+  viewOrientation.multiply(viewQ1.setFromAxisAngle(viewAxisZ,angle)).normalize();
+  updateCamera();
+}
+function pointerCoords(ev){const r=renderer.domElement.getBoundingClientRect();return new THREE.Vector2((ev.clientX-r.left)/r.width*2-1,-(ev.clientY-r.top)/r.height*2+1);}
+function getPick(ev){
+  scratchRay.setFromCamera(pointerCoords(ev),camera);
+  const hits=scratchRay.intersectObjects(pickMeshes,false);
+  const selected=pickVisibleSurface(
+    hits,
+    camera.position.toArray(),
+    faceDefs,
+    half()
+  );
+  if(!selected)return null;
+  const {hit,face}=selected;
+  // Anchor the initial gesture on the ORIGINAL cube face plane, not on the
+  // slightly recessed bevel. This avoids introducing a false diagonal offset.
+  const point=faceIntersection(ev,face)??hit.point.clone();
+  const piece=hit.object.userData.piece;
+  // The raycast decides WHICH physical petal was touched. Identify its
+  // painted polygon on the currently visible cube face, even after twists.
+  // Do not infer perimeter contact from the surrounding original grid cell.
+  let petalEdge=null;
+  let bestAlignment=.9;
+  for(const patch of piece.coloredPatches){
+    const alignedNormal=applyM(piece.state,new THREE.Vector3(...patch.normal));
+    const alignment=alignedNormal.dot(face.normal);
+    if(alignment<=bestAlignment)continue;
+    bestAlignment=alignment;
+    const worldCenter=applyM(piece.state,new THREE.Vector3(...patch.center));
+    petalEdge=perimeterEdgeOfPatch(worldCenter.toArray(),{
+      u:face.u.toArray(),v:face.v.toArray()
+    },N);
+  }
+  return {piece,point,face,petalEdge};
+}
+function faceIntersection(ev,face){
+  scratchRay.setFromCamera(pointerCoords(ev),camera);
+  const plane=new THREE.Plane().setFromNormalAndCoplanarPoint(face.normal,face.normal.clone().multiplyScalar(half()));
+  return scratchRay.ray.intersectPlane(plane,new THREE.Vector3());
+}
+function gestureToMove(original,ev,wide){
+  const point=faceIntersection(ev,original.face);
+  if(!point)return null;
+  const f=original.face,p0=original.point,du=point.clone().sub(p0).dot(f.u),dv=point.clone().sub(p0).dot(f.v);
+  if(Math.hypot(du,dv)<.045)return null;
+  const octant=(Math.round(Math.atan2(dv,du)/(Math.PI/4))+8)%8;
+  const directions=[[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  const [dU,dV]=directions[octant];
+  const center=currentCenter(original.piece);
+  if(octant%2===0){
+    const direction=f.u.clone().multiplyScalar(dU).addScaledVector(f.v,dV);
+    const spin=new THREE.Vector3().crossVectors(f.normal,direction).normalize();
+    const axis=[0,1,2].find(i=>Math.abs(spin.getComponent(i))>.5);
+    const side=center.getComponent(axis)<0?-1:1;
+    const depth=Math.floor(half()-side*center.getComponent(axis)+1e-6);
+    return {type:'orth',axis,side,depth,wide,sign:spin.getComponent(axis)>0?1:-1};
+  }
+  // V1.1 behavior remains the default. A middle skew layer is selected
+  // ONLY when the ACTUAL painted triangular petal touches an outer face edge
+  // and the 45-degree drag points outward across that very same edge.
+  // Example: upper-left TOP petal ↖/↗ => middle; ↙/↘ => V1.1 outer.
+  const outward=isOutwardEdgeFlick(original.petalEdge,dU,dV);
+  const face={normal:f.normal.toArray(),u:f.u.toArray(),v:f.v.toArray()};
+  const sgn=chooseSkewCorner(face,center.toArray(),dU,dV,N,outward);
+  const axisV=new THREE.Vector3(...sgn).normalize();
+  const dir=f.u.clone().multiplyScalar(dU).addScaledVector(f.v,dV).normalize();
+  const q=new THREE.Quaternion().setFromAxisAngle(axisV,2*Math.PI/3);
+  const plusScore=p0.clone().applyQuaternion(q).sub(p0).dot(dir);
+  const minusScore=p0.clone().applyQuaternion(q.invert()).sub(p0).dot(dir);
+  const sign=plusScore>=minusScore?1:-1;
+  const depth=skewDepth(center.toArray(),sgn,N);
+  // Normal gestures must retain the same valid/invalid selection as V1.1.
+  // Only the new outward mode is allowed to select beyond the original N layers.
+  if(depth<0||depth>=(outward?3*N:N))return null;
+  return {type:'corner',corner:sgn,depth,wide:effectiveWide({type:'corner',depth,wide},N),sign};
+}
+function applyMove(move,animation=true,record=true,duration=240){
+  if(busy)return Promise.resolve(false);
+  const chosen=selectedPieces(move);
+  if(!chosen.length)return Promise.resolve(false);
+  busy=true;
+  const axis=move.type==='orth'?unitAxis(move.axis):new THREE.Vector3(...move.corner).normalize();
+  const angle=move.sign*(move.type==='orth'?Math.PI/2:Math.PI*2/3);
+  const rot=matFromRotation(axis,angle);
+  return new Promise(resolve=>{
+  const finish=()=>{
+    for(const p of chosen){
+      p.state=mulM(rot,p.state);
+      p.mesh.quaternion.copy(matrixQuaternion(p.state));
+      p.mesh.position.set(0,0,0);
+    }
+    busy=false;
+    if(record){moves.push({...move});redo=[];turnCount++;}
+    refreshStatus();
+    resolve(true);
+  };
+  if(!animation){finish();return;}
+  const pivot=new THREE.Group();pieceRoot.add(pivot);
+  for(const p of chosen)pivot.attach(p.mesh);
+  const start=performance.now();
+  const update=t=>{
+    const progress=Math.min(1,(t-start)/duration);
+    const ease=1-Math.pow(1-progress,3);
+    pivot.quaternion.setFromAxisAngle(axis,angle*ease);
+    if(progress<1){requestAnimationFrame(update);return;}
+    pivot.quaternion.setFromAxisAngle(axis,angle);
+    pivot.updateMatrixWorld(true);
+    for(const p of chosen)pieceRoot.attach(p.mesh);
+    pieceRoot.remove(pivot);
+    finish();
+  };
+  refreshStatus();requestAnimationFrame(update);
+  });
+}
+function randomMove(){
+  const wide=Math.random()<.21;
+  const sign=Math.random()<.5?1:-1;
+  if(Math.random()<.48){return {type:'orth',axis:Math.floor(Math.random()*3),side:Math.random()<.5?1:-1,depth:Math.floor(Math.random()*N),wide,sign};}
+  const depth=Math.floor(Math.random()*3*N);
+  return {type:'corner',corner:[0,1,2].map(()=>Math.random()<.5?1:-1),depth,wide:effectiveWide({type:'corner',depth,wide},N),sign};
+}
+async function scramble(){
+  if(busy||scrambleRunning)return;
+  scrambleRunning=true;
+  refreshStatus();
+  const count=N<=3?22:30;
+  const animate=$('#scrambleAnimate').checked;
+  let done=0;
+  try{
+    for(let i=0;i<count;i++){
+      let move=randomMove(),attempts=0;
+      while(!selectedPieces(move).length && attempts++<20)move=randomMove();
+      if(await applyMove(move,animate,true,animate?120:0))done++;
+      if(animate)statusToast(`正在打乱 · ${done} / ${count}`);
+    }
+    statusToast(`已打乱 ${done} 步 · 可撤销`);
+  }finally{
+    scrambleRunning=false;
+    refreshStatus();
+  }
+}
+function undoMove(){if(busy||scrambleRunning||!moves.length)return;const move=moves.pop();redo.push(move);turnCount=Math.max(0,turnCount-1);applyMove({...move,sign:-move.sign},true,false);statusToast('已撤销上一步');}
+function redoMove(){if(busy||scrambleRunning||!redo.length)return;const move=redo.pop();moves.push(move);turnCount++;applyMove(move,true,false);statusToast('已重做上一步');}
+function resetPuzzle(){if(busy||scrambleRunning)return;for(const p of pieces){p.state=identity();p.mesh.quaternion.identity();p.mesh.position.set(0,0,0);}moves=[];redo=[];turnCount=0;refreshStatus('魔方已重置');}
+function resetCamera(){defaultViewOrientation();radius=N*2.68+.45;updateCamera();statusToast('已恢复默认视角');}
+function handleDown(ev){
+  if(ev.button!==0&&ev.button!==2)return;
+  if(busy||scrambleRunning)return;
+  ev.preventDefault();
+  try{renderer.domElement.setPointerCapture(ev.pointerId);}catch{}
+  pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(pointers.size>=2){
+    drag=null;
+    const pair=[...pointers.values()].slice(0,2);
+    pinch={distance:Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y),
+      angle:Math.atan2(pair[1].y-pair[0].y,pair[1].x-pair[0].x),
+      middle:[(pair[0].x+pair[1].x)/2,(pair[0].y+pair[1].y)/2],radius};
+    return;
+  }
+  const picked=ev.button===2?null:getPick(ev);
+  drag={pointer:ev.pointerId,startX:ev.clientX,startY:ev.clientY,lastX:ev.clientX,lastY:ev.clientY,picked,roll:ev.button===2&&ev.shiftKey,wide:ev.ctrlKey||ev.metaKey||autoWide,used:false};
+  renderer.domElement.classList.toggle('grabbing',!picked);
+}
+function handleMove(ev){
+  if(!pointers.has(ev.pointerId))return;
+  pointers.set(ev.pointerId,{x:ev.clientX,y:ev.clientY});
+  if(pointers.size>=2){
+    const pair=[...pointers.values()].slice(0,2);
+    const d=Math.max(1,Math.hypot(pair[0].x-pair[1].x,pair[0].y-pair[1].y));
+    const middle=[(pair[0].x+pair[1].x)/2,(pair[0].y+pair[1].y)/2];
+    if(pinch){
+      const angle=Math.atan2(pair[1].y-pair[0].y,pair[1].x-pair[0].x);
+      let delta=angle-pinch.angle;
+      if(delta>Math.PI)delta-=2*Math.PI;
+      if(delta< -Math.PI)delta+=2*Math.PI;
+      radius=pinch.radius*(pinch.distance/d);
+      orbit(middle[0]-pinch.middle[0],middle[1]-pinch.middle[1]);
+      rollCamera(-delta);
+      pinch.distance=d;pinch.radius=radius;pinch.middle=middle;pinch.angle=angle;
+    }
+    return;
+  }
+  if(!drag||drag.pointer!==ev.pointerId)return;
+  if(drag.picked){
+    if(!drag.used&&Math.hypot(ev.clientX-drag.startX,ev.clientY-drag.startY)>=14){
+      // Select once, then commit immediately. No modal choices or animated previews.
+      const move=gestureToMove(drag.picked,ev,drag.wide);
+      if(move){drag.used=true;applyMove(move,true,true);statusToast(`${move.type==='corner'?'120° 斜层':'90° 正交'} · 第 ${move.depth+1}${move.type==='corner'?`/${3*N}`:`/${N}`} 层${move.wide?'（多层）':''}`);}
+    }
+  }else{const dx=ev.clientX-drag.lastX,dy=ev.clientY-drag.lastY;if(drag.roll)rollCamera(dx*.009);else orbit(dx,dy);drag.lastX=ev.clientX;drag.lastY=ev.clientY;}
+}
+function handleUp(ev){
+  if(drag?.pointer===ev.pointerId&&drag.picked&&!drag.used&&!busy&&!scrambleRunning&&
+     Math.hypot(ev.clientX-drag.startX,ev.clientY-drag.startY)>=14){
+    const move=gestureToMove(drag.picked,ev,drag.wide);
+    if(move){applyMove(move,true,true);}
+  }
+  pointers.delete(ev.pointerId);
+  if(pointers.size<2)pinch=null;
+  if(drag?.pointer===ev.pointerId)drag=null;
+  renderer.domElement.classList.remove('grabbing');
+}
+renderer.domElement.addEventListener('pointerdown',handleDown);
+renderer.domElement.addEventListener('pointermove',handleMove);
+renderer.domElement.addEventListener('pointerup',handleUp);
+renderer.domElement.addEventListener('pointercancel',handleUp);
+renderer.domElement.addEventListener('lostpointercapture',handleUp);
+renderer.domElement.addEventListener('contextmenu',ev=>ev.preventDefault());
+renderer.domElement.addEventListener('wheel',ev=>{ev.preventDefault();radius*=Math.exp(ev.deltaY*.001);updateCamera();},{passive:false});
+window.addEventListener('keydown',ev=>{
+  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='z'){ev.preventDefault();ev.shiftKey?redoMove():undoMove();}
+  if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==='y'){ev.preventDefault();redoMove();}
+  if(ev.key==='Escape'){$('#helpDialog').close?.();drag=null;}
+  if(ev.key.toLowerCase()==='r'&&!ev.ctrlKey&&!ev.metaKey&&!ev.repeat)resetCamera();
+  if(!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&!ev.repeat&&
+      !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)){
+    if(ev.key.toLowerCase()==='q')rollCamera(-Math.PI/12);
+    if(ev.key.toLowerCase()==='e')rollCamera(Math.PI/12);
+  }
+});
+$('#order').addEventListener('change',e=>createPuzzle(Number(e.target.value)));
+$('#btnScramble').addEventListener('click',scramble);
+$('#btnUndo').addEventListener('click',undoMove);
+$('#btnRedo').addEventListener('click',redoMove);
+$('#btnReset').addEventListener('click',resetPuzzle);
+$('#btnView').addEventListener('click',resetCamera);
+$('#btnRollCCW').addEventListener('click',()=>rollCamera(-Math.PI/12));
+$('#btnRollCW').addEventListener('click',()=>rollCamera(Math.PI/12));
+$('#btnWide').addEventListener('click',()=>{autoWide=!autoWide;$('#btnWide').setAttribute('aria-pressed',String(autoWide));$('#btnWide').classList.toggle('active',autoWide);statusToast(autoWide?'多层模式已开启':'单层模式已开启');});
+$('#btnHelp').addEventListener('click',()=>$('#helpDialog').showModal());
+$('#closeHelp').addEventListener('click',()=>$('#helpDialog').close());
+$('#helpDialog').addEventListener('click',e=>{if(e.target===$('#helpDialog'))e.target.close();});
+const observer=new ResizeObserver(()=>{const w=stage.clientWidth,h=stage.clientHeight;if(!w||!h)return;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);});observer.observe(stage);
+function render(){requestAnimationFrame(render);renderer.render(scene,camera);}render();
+updateCamera();createPuzzle(3);
+
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">
+          <svg width="35" height="35" viewBox="0 0 36 36" fill="none"><path d="M18 3L32 11V25L18 33L4 25V11L18 3Z" stroke="#8faffb" stroke-width="1.4"/><path d="M4 11L18 19L32 11M18 19V33M4 25L32 11M4 11L18 33" stroke="#8d9bad" stroke-opacity=".7"/><path d="M18 3V19" stroke="#73eed1" stroke-width="1.6"/></svg>
+        </span>
+        <div><div class="brand-name">ORTHO<span>SKEW</span></div><div class="brand-sub">正斜魔方</div></div>
+      </div>
+      <div class="header-right">
+        <span class="build-tag">V1.8</span>
+        <button class="icon-button" id="btnHelp" title="操作说明" aria-label="操作说明">?<span class="desktop-only"> 操作指南</span></button>
+      </div>
+    </header>
+
+    <main class="main-layout">
+      <section id="stage" aria-label="三维魔方交互区域">
+        <div class="stage-glow"></div>
+        
+        <div id="loading" class="loading show"><div class="loader"></div><p id="loadingText">正在生成魔方…</p></div>
+        <div class="stage-bottom-left">
+          <div class="status-pill" id="solvedLabel">已还原</div>
+          <span id="toastText" class="stage-message">按住表面滑动来转动魔方</span>
+        </div>
+        <div class="stage-roll" role="group" aria-label="绕视线方向旋转视角">
+          <span>视角滚转</span><button id="btnRollCCW" aria-label="视角逆时针滚转15度" title="逆时针滚转 15° (Q)">↶</button><button id="btnRollCW" aria-label="视角顺时针滚转15度" title="顺时针滚转 15° (E)">↷</button>
+        </div>
+        <div class="stage-bottom-right"><span class="crosshair">✳</span> 空白拖动 / 右键：自由视角 · Q/E：滚转</div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel about-panel">
+          
+          <h1>两种轴系，<br/><em>无限组合。</em></h1>
+          <p class="intro">既能像普通魔方一样转动 <strong>90°</strong>，也能沿斜向转动 <strong>120°</strong>。选择阶数，打乱后试着还原六个面。</p>
+          <div class="axis-tags"><span><i class="square-symbol"></i>90° 普通转层</span><span><i class="diamond-symbol"></i>120° 斜向转层</span></div>
+        </section>
+
+        <section class="panel settings-panel">
+          <p class="eyebrow">游戏设置</p>
+          <div class="setting-row"><label for="order">魔方阶数</label><div class="select-shell"><select id="order" aria-label="魔方阶数"><option value="2">2 × 2 × 2</option><option value="3" selected>3 × 3 × 3</option><option value="4">4 × 4 × 4</option><option value="5">5 × 5 × 5</option><option value="6">6 × 6 × 6</option></select><span>⌄</span></div></div>
+          <div class="stats"><div><span class="stat-value" id="pieceCount">—</span><span class="stat-label">零件数</span></div><div class="stats-divider"></div><div><span class="stat-value" id="moveCount">0</span><span class="stat-label">操作步数</span></div></div>
+          <button class="wide-button" id="btnWide" aria-pressed="false"><span class="wide-icon">▣</span><span>多层模式</span><small>CTRL</small><span class="switch"><b></b></span></button>
+          <p class="setting-hint">开启后可连同相邻层一起转动。奇数阶的中央层始终单独转动；电脑可按住 Ctrl。</p>
+        </section>
+
+        <section class="panel controls-panel">
+          <p class="eyebrow">游戏操作</p>
+          <button id="btnScramble" class="button button-primary"><span class="button-icon">⤨</span> 随机打乱 <span class="button-arrow">↗</span></button>
+          <label class="scramble-setting" for="scrambleAnimate"><span>显示打乱动画</span><input id="scrambleAnimate" type="checkbox" checked /><span class="switch" aria-hidden="true"><b></b></span></label>
+          <div class="button-grid">
+            <button id="btnUndo" class="button button-secondary" disabled>↶ 撤销</button>
+            <button id="btnRedo" class="button button-secondary" disabled>↷ 重做</button>
+            <button id="btnReset" class="button button-secondary">◎ 重置魔方</button>
+            <button id="btnView" class="button button-secondary">⌖ 重置视角</button>
+          </div>
+        </section>
+
+        <div class="howto">
+          <div class="hint-title">操作提示 <span>↘</span></div>
+          <div class="hint-row"><span>↕ ↔</span><p>水平 / 竖直滑动 <strong>· 普通转层</strong></p></div>
+          <div class="hint-row"><span>⤢</span><p>边缘三角瓣向外斜拨 <strong>· 中间斜层</strong></p></div>
+          <div class="hint-row"><span>⌁</span><p>空白处或右键拖动 <strong>· 转动视角</strong></p></div>
+          <div class="hint-row"><span>↶</span><p>Q/E · Shift+右键 · 双指旋拧 <strong>· 滚转</strong></p></div>
+          <div class="hint-row"><span>⌘</span><p>Ctrl + 滑动 <strong>· 多层</strong></p></div>
+        </div>
+      </aside>
+    </main>
+    
+  </div>
+  <dialog id="helpDialog">
+    <div class="dialog-inner"><div class="dialog-head"><div><h2>操作说明</h2></div><button id="closeHelp" class="close-dialog" aria-label="关闭">×</button></div>
+      <p>在魔方表面按住鼠标左键或使用单指，沿水平、竖直或斜向滑动即可转层。<strong>滑动方向以按下时触摸的魔方表面为准</strong>，不以屏幕方向为准。</p>
+      <div class="guide-grid"><div><span>↑ ↓ ← →</span><strong>普通转层</strong><small>水平或竖直滑动，转动 90°</small></div><div><span>↗ ↘ ↙ ↖</span><strong>斜向转层</strong><small>沿对角方向滑动，转动 120°</small></div></div>
+      <p><strong>中间斜层：</strong>从接触当前面外边缘的三角瓣开始，朝它所接触的边缘外侧斜拨。其他斜向滑动则转动相应的外侧斜层。</p><p><strong>多层：</strong>电脑按住 Ctrl 滑动；触屏先打开“多层模式”，再滑动。奇数阶的正中央层始终只转动本层。</p>
+      <p><strong>视角：</strong>在空白处拖动或按住鼠标右键拖动，可查看任意一面；滚轮缩放。按 Q/E、点右上角 ↶ ↷ 或按住 Shift+右键水平拖动，可旋转画面方向。触屏可用双指旋拧和捏合。</p>
+      <p><strong>打乱：</strong>点击“随机打乱”开始新挑战。“显示打乱动画”默认开启，关闭后会立即完成打乱。</p>
+      <p><strong>撤销：</strong>转错时点“撤销”，或在电脑上按 Ctrl+Z；“重做”可以恢复刚撤销的操作。</p>
+      
+    </div>
+  </dialog>
+</body>
+</html>
