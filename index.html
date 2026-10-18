@@ -632,15 +632,21 @@ function loadGame(storage, order) {
     if (game.version !== SAVE_VERSION || game.order !== order || !Array.isArray(game.moves) || !Array.isArray(game.redo)) return null;
     if (game.moves.length + game.redo.length > MAX_STORED_MOVES) return null;
     if (![...game.moves,...game.redo].every(move => validMove(move,order))) return null;
-    return { moves: game.moves.map(copyMove), redo: game.redo.map(copyMove) };
+    // V1.12 saves have no challengeStart. Preserve the puzzle and undo history,
+    // but start the new step counter at zero rather than counting old scrambles.
+    const challengeStart = Number.isInteger(game.challengeStart) &&
+      game.challengeStart >= 0 && game.challengeStart <= game.moves.length + game.redo.length
+      ? game.challengeStart : game.moves.length;
+    return { moves: game.moves.map(copyMove), redo: game.redo.map(copyMove), challengeStart };
   } catch { return null; }
 }
 
-function saveGame(storage, order, moves, redo) {
+function saveGame(storage, order, moves, redo, challengeStart = 0) {
   if (!storage) return false;
   try {
     if (moves.length + redo.length > MAX_STORED_MOVES || ![...moves,...redo].every(m => validMove(m,order))) return false;
-    storage.setItem(`${PREFIX}${order}`, JSON.stringify({version:SAVE_VERSION,order,moves,redo}));
+    if (!Number.isInteger(challengeStart) || challengeStart < 0 || challengeStart > moves.length + redo.length) return false;
+    storage.setItem(`${PREFIX}${order}`, JSON.stringify({version:SAVE_VERSION,order,moves,redo,challengeStart}));
     return true;
   } catch { return false; }
 }
@@ -665,7 +671,73 @@ function savePreferences(storage, preferences) {
   } catch { return false; }
 }
 
+// ===== step-counter.js =====
+/**
+ * Count effective player moves using canonical physical axes and layer ranges.
+ * This is a display-only metric: raw history remains intact for undo/redo.
+ * A single move can twist any contiguous set of layers by the same amount.
+ * Consecutive operations about the same physical axis combine per layer,
+ * including opposite-end descriptions of the same skew axis.
+ */
+
+
+/** Canonical zero-based inclusive layer interval and signed turn. */
+function canonicalTurn(move, order) {
+  if (!Number.isInteger(order) || order < 2 || order > 6) throw new RangeError('Invalid puzzle order');
+  const key = rotationAxisKey(move);
+  const total = move.type === 'orth' ? order : 3 * order;
+  const period = move.type === 'orth' ? 4 : 3;
+  const fromOppositeEnd = move.type === 'orth' ? move.side === -1 : move.corner[0] === -1;
+  const lastLocalLayer = move.depth;
+  const firstLocalLayer = effectiveWide(move, order) ? 0 : lastLocalLayer;
+  const first = fromOppositeEnd ? total - 1 - lastLocalLayer : firstLocalLayer;
+  const last = fromOppositeEnd ? total - 1 - firstLocalLayer : lastLocalLayer;
+  // Orthogonal twists always use the +coordinate axis irrespective of which
+  // outer side was selected. A skew's rotation axis vector is the chosen
+  // corner; describing the same axis from its opposite vertex reverses it.
+  const signed = move.type === 'corner' ? move.sign * move.corner[0] : move.sign;
+  return {key, total, period, first, last, signed};
+}
+
+function addTurn(values, turn) {
+  for (let i=turn.first; i<=turn.last; i++) {
+    values[i] = (values[i] + turn.signed + turn.period) % turn.period;
+  }
+}
+function isIdentity(values){return values.every(x=>x===0);}
+function countIntervals(values) {
+  let count=0, last=0;
+  for (const value of values) {
+    // A contiguous run of the same non-zero rotation can be one layer-range move.
+    if (value && value!==last) count++;
+    last=value;
+  }
+  return count;
+}
+
+function countEffectiveSteps(history, order) {
+  const groups=[];
+  for (const move of history) {
+    const turn=canonicalTurn(move,order);
+    let current=groups.at(-1);
+    if (!current || current.key!==turn.key) {
+      current={key:turn.key,values:Array(turn.total).fill(0)};
+      groups.push(current);
+    }
+    addTurn(current.values, turn);
+    if (isIdentity(current.values)) groups.pop();
+  }
+  return groups.reduce((sum,group)=>sum+countIntervals(group.values),0);
+}
+
+/** Index of the initial scramble's last move in raw history. */
+function countPlayerSteps(history, challengeStart, order, scrambleRunning=false) {
+  if (scrambleRunning || history.length <= challengeStart) return 0;
+  return countEffectiveSteps(history.slice(challengeStart), order);
+}
+
 // ===== app.js =====
+
 
 
 
@@ -802,11 +874,11 @@ function makePieceGeometry(piece,n){
   return {geometry,outerNormals,coloredPatches};
 }
 
-let N=3,pieces=[],meshes=[],pickMeshes=[],moves=[],redo=[],busy=false,scrambleRunning=false,autoWide=false,turnCount=0;
+let N=3,pieces=[],meshes=[],pickMeshes=[],moves=[],redo=[],busy=false,scrambleRunning=false,autoWide=false,challengeStart=0;
 let storage=null;
 try { storage=window.localStorage; } catch { /* Storage disabled/private mode: gameplay still works. */ }
 const startupPreferences=loadPreferences(storage);
-function saveCurrentGame(){ return saveGame(storage,N,moves,redo); }
+function saveCurrentGame(){ return saveGame(storage,N,moves,redo,challengeStart); }
 function saveCurrentPreferences(){ return savePreferences(storage,{order:Number($('#order').value),animate:$('#scrambleAnimate').checked}); }
 function syncPieceMesh(piece){
   piece.mesh.quaternion.copy(matrixQuaternion(piece.state));
@@ -833,12 +905,12 @@ function restoreSavedGame(order){
       rotateState(move,chosen,false);
     }
     for(const p of pieces)syncPieceMesh(p);
-    moves=saved.moves;redo=saved.redo;turnCount=moves.length;
+    moves=saved.moves;redo=saved.redo;challengeStart=saved.challengeStart;
     return true;
   }catch(err){
     console.warn('Stored OrthoSkew game could not be restored:',err);
     for(const p of pieces){p.state=identity();syncPieceMesh(p);}
-    moves=[];redo=[];turnCount=0;
+    moves=[];redo=[];challengeStart=0;
     return false;
   }
 }
@@ -865,7 +937,7 @@ function selectedPieces(move){
 }
 function refreshStatus(message=''){
   $('#pieceCount').textContent=pieces.length.toLocaleString('zh-CN');
-  $('#moveCount').textContent=turnCount;
+  $('#moveCount').textContent=countPlayerSteps(moves,challengeStart,N,scrambleRunning);
   const locked=busy||scrambleRunning;
   $('#btnUndo').disabled=locked||moves.length===0;
   $('#btnRedo').disabled=locked||redo.length===0;
@@ -892,7 +964,7 @@ async function createPuzzle(order){
   // on the boundary after legal orthogonal or corner-axis twists.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, N<=3?1.5:N===4?1.25:1.0));
   for(const p of pieces)p.mesh.geometry.dispose();
-  pieceRoot.clear();pieces=[];meshes=[];pickMeshes=[];moves=[];redo=[];turnCount=0;
+  pieceRoot.clear();pieces=[];meshes=[];pickMeshes=[];moves=[];redo=[];challengeStart=0;
   try{
     const definitions=generatePieces(N,.06,N<=4?2:1,null,true);
     for(const shape of definitions){
@@ -1020,7 +1092,13 @@ function applyMove(move,animation=true,record=true,duration=240){
   const finish=()=>{
     rotateState(move,chosen);
     busy=false;
-    if(record){moves.push({...move});redo=[];turnCount++;}
+    if(record){
+      // Branching after undoing past the last scramble starts a fresh counting
+      // baseline; keeping the old index would hide the player's new turns.
+      if (!scrambleRunning) challengeStart=Math.min(challengeStart,moves.length);
+      moves.push({...move});redo=[];
+      if (scrambleRunning) challengeStart=moves.length;
+    }
     saveCurrentGame();
     refreshStatus();
     resolve(true);
@@ -1052,6 +1130,7 @@ async function scramble(){
   const count=sequence.length;
   const animate=$('#scrambleAnimate').checked;
   scrambleRunning=true;
+  challengeStart=moves.length;
   let done=0;
   if(!animate){
     // A true batch: do not render/refresh/disable/re-enable between each step.
@@ -1064,13 +1143,13 @@ async function scramble(){
         moves.push({...move});done++;
       }
       for(const p of pieces)syncPieceMesh(p);
-      redo=[];turnCount=moves.length;
+      redo=[];challengeStart=moves.length;
       saveCurrentGame();
       statusToast(`已打乱 ${done} 步 · 可撤销`);
     }catch(error){
       console.error(error);
       for(const p of pieces)syncPieceMesh(p);
-      if(done){redo=[];turnCount=moves.length;saveCurrentGame();}
+      if(done){redo=[];challengeStart=moves.length;saveCurrentGame();}
       statusToast('打乱未能完成，请重试');
     }finally{
       scrambleRunning=false;
@@ -1095,9 +1174,9 @@ async function scramble(){
     refreshStatus();
   }
 }
-function undoMove(){if(busy||scrambleRunning||!moves.length)return;const move=moves.pop();redo.push(move);turnCount=Math.max(0,turnCount-1);applyMove({...move,sign:-move.sign},true,false);statusToast('已撤销上一步');}
-function redoMove(){if(busy||scrambleRunning||!redo.length)return;const move=redo.pop();moves.push(move);turnCount++;applyMove(move,true,false);statusToast('已重做上一步');}
-function resetPuzzle(){if(busy||scrambleRunning)return;for(const p of pieces){p.state=identity();p.mesh.quaternion.identity();p.mesh.position.set(0,0,0);}moves=[];redo=[];turnCount=0;saveCurrentGame();refreshStatus('魔方已重置');}
+function undoMove(){if(busy||scrambleRunning||!moves.length)return;const move=moves.pop();redo.push(move);applyMove({...move,sign:-move.sign},true,false);statusToast('已撤销上一步');}
+function redoMove(){if(busy||scrambleRunning||!redo.length)return;const move=redo.pop();moves.push(move);applyMove(move,true,false);statusToast('已重做上一步');}
+function resetPuzzle(){if(busy||scrambleRunning)return;for(const p of pieces){p.state=identity();p.mesh.quaternion.identity();p.mesh.position.set(0,0,0);}moves=[];redo=[];challengeStart=0;saveCurrentGame();refreshStatus('魔方已重置');}
 function resetCamera(){defaultViewOrientation();radius=N*2.68+.45;updateCamera();statusToast('已恢复默认视角');}
 function handleDown(ev){
   if(ev.button!==0&&ev.button!==2)return;
@@ -1218,7 +1297,7 @@ updateCamera();createPuzzle(startupPreferences.order);
       </div>
       <div class="header-right">
         <button id="btnSidebarToggle" class="panel-toggle" type="button" aria-controls="gameSidebar" aria-expanded="true" aria-label="收起操作面板" title="收起操作面板"><span class="panel-toggle-icon" aria-hidden="true">◂</span><span class="panel-toggle-text">收起面板</span></button>
-        <span class="build-tag">V1.12</span>
+        <span class="build-tag">V1.13</span>
         <button class="icon-button" id="btnHelp" title="操作说明" aria-label="操作说明">?<span class="desktop-only"> 操作指南</span></button>
       </div>
     </header>
@@ -1250,7 +1329,7 @@ updateCamera();createPuzzle(startupPreferences.order);
         <section class="panel settings-panel">
           <p class="eyebrow">游戏设置</p>
           <div class="setting-row"><label for="order">魔方阶数</label><div class="select-shell"><select id="order" aria-label="魔方阶数"><option value="2">2 × 2 × 2</option><option value="3" selected>3 × 3 × 3</option><option value="4">4 × 4 × 4</option><option value="5">5 × 5 × 5</option><option value="6">6 × 6 × 6</option></select><span>⌄</span></div></div>
-          <div class="stats"><div><span class="stat-value" id="pieceCount">—</span><span class="stat-label">零件数</span></div><div class="stats-divider"></div><div><span class="stat-value" id="moveCount">0</span><span class="stat-label">操作步数</span></div></div>
+          <div class="stats"><div><span class="stat-value" id="pieceCount">—</span><span class="stat-label">块数</span></div><div class="stats-divider"></div><div><span class="stat-value" id="moveCount">0</span><span class="stat-label">步数</span></div></div>
           <button class="wide-button" id="btnWide" aria-pressed="false"><span class="wide-icon">▣</span><span>多层模式</span><small>CTRL</small><span class="switch"><b></b></span></button>
           <p class="setting-hint">开启后可连同相邻层一起转动。奇数阶的中央层始终单独转动；电脑可按住 Ctrl。</p>
         </section>
@@ -1290,6 +1369,7 @@ updateCamera();createPuzzle(startupPreferences.order);
       <p><strong>视角：</strong>在空白处拖动或按住鼠标右键拖动，可查看任意一面；滚轮缩放。按 Q/E、使用操作面板中的视角滚转按钮，或按住 Shift+右键水平拖动，可旋转画面方向。触屏可用双指旋拧和捏合。</p>
       <p><strong>打乱：</strong>点击“随机打乱”开始新挑战。“显示打乱动画”默认开启，关闭后会立即完成打乱。</p>
       <p><strong>撤销：</strong>转错时点“撤销”，或在电脑上按 Ctrl+Z；“重做”可以恢复刚撤销的操作。</p>
+      <p><strong>步数：</strong>打乱不计步；连续同轴转动能合并成一步的按一步计算，完全抵消则不计步。</p>
       
     </div>
   </dialog>
