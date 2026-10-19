@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0a101e" />
   <meta name="description" content="OrthoSkew 正斜魔方：转动普通层与斜向层，挑战 2～6 阶魔方。" />
   <title>OrthoSkew · 正斜魔方</title>
-  <style>
+<style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 :root{color-scheme:dark;--bg:#090f1a;--panel:#101a29;--line:#273347;--text:#e9eef9;--muted:#8b9aaf;--teal:#72edcf;--blue:#8faefa;font-family:'DM Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 *{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;background:var(--bg);color:var(--text)}button,select{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:transparent}button:disabled{opacity:.37;cursor:default}button:focus-visible,select:focus-visible{outline:2px solid var(--teal);outline-offset:3px}#app{height:100dvh;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:radial-gradient(ellipse at 20% 80%,#172237 0,transparent 55%),#090e18}
@@ -147,13 +147,24 @@ html,body{height:100%;overflow:clip;overscroll-behavior:none}
 html,body{width:100%;height:100%;overscroll-behavior:none}
 body{position:fixed;inset:0;overflow:clip}
 
+/* Move history lives at the bottom of the independently scrollable help dialog. */
+.operation-section{margin-top:24px;padding-top:20px;border-top:1px solid #344963;min-width:0}
+.operation-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
+.operation-heading label{font-size:12px;font-weight:700;color:#c5d8e9}
+.operation-heading button{background:#1c3047;color:#d7eaf8;border:1px solid #42627b;border-radius:8px;padding:6px 13px;min-width:57px;font-size:12px;font-weight:600}
+.operation-heading button:not(:disabled):hover{background:#31516c}
+.operation-log{display:block;width:100%;height:120px;max-width:100%;min-width:0;resize:vertical;border-radius:10px;border:1px solid #344a63;background:#101e30;color:#e3f1ff;padding:10px 11px;font:500 13px/1.65 ui-monospace,Consolas,'SFMono-Regular',monospace;letter-spacing:.3px;word-break:break-word;overflow-wrap:anywhere;outline:none;scrollbar-width:thin}
+.operation-log::placeholder{color:#71849b}
+.operation-log:focus{border-color:#5e96ba}
+@media(max-width:720px){.operation-section{margin-top:18px;padding-top:16px}.operation-log{height:110px;font-size:12px}}
+
 </style>
-  <!-- Direct static hosting: this import map works on GitHub Pages, with no build needed. -->
-  <script type="importmap">
-    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
-  </script>
-  <script type="module">
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js"}}
+</script>
+<script type="module">
 import * as THREE from 'three';
+
 // ===== geometry.js =====
 // Exact cutting-plane layout, with floating-point vertices only for rendering.
 // All puzzle state transitions use integer rotations and a fixed original geometry.
@@ -329,6 +340,7 @@ function debugVolume(poly) { let v = 0; for (const f of poly.faces)
     for (let i = 1; i < f.v.length - 1; i++)
         v += dot(f.v[0], cross(f.v[i], f.v[i + 1])) / 6; return Math.abs(v); }
 
+
 // ===== picking.js =====
 // Pick a visible surface without looking through a nearer chamfer or cut face.
 // Coordinates are cube-centered world space. No Three.js dependency: regression
@@ -364,6 +376,7 @@ function pickVisibleSurface(hits, eye, faceDefs, half, tolerance = FACE_PICK_TOL
   const face = classifyVisibleFace(point, eye, faceDefs, half, tolerance);
   return face ? { hit, face } : null;
 }
+
 
 // ===== layers.js =====
 /** Layer indices are zero-based. Coordinates are centered on the whole cube. */
@@ -463,6 +476,7 @@ function isOutwardEdgeFlick(petalEdge, dU, dV) {
     || (petalEdge === 'v+' && dV > 0);
 }
 
+
 // ===== solved.js =====
 /** Visual solved status: every external face is monochrome, regardless of
  * global cube rotation or of exchanges between same-color triangular petals.
@@ -491,6 +505,7 @@ function transformDirection(m, v) {
           m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];
 }
 
+
 // ===== scramble.js =====
 /**
  * OrthoSkew standard scramble (2–6 layers).
@@ -499,7 +514,6 @@ function transformDirection(m, v) {
  * the same physical rotation axis, even if the axis is addressed from the
  * opposite end or a different depth/side is chosen.
  */
-
 const ORTHOGONAL_WEIGHT = 0.48;
 const SKEW_WEIGHT = 1 - ORTHOGONAL_WEIGHT;
 const STANDARD_SCRAMBLE_LENGTHS = Object.freeze({ 2: 28, 3: 36, 4: 40, 5: 45, 6: 50 });
@@ -588,6 +602,7 @@ function generateStandardScramble(order, rng = Math.random, previousMoveOrAxis =
   return moves;
 }
 
+
 // ===== persistence.js =====
 /**
  * Versioned browser saves. A game is fully reconstructed by replaying its
@@ -671,16 +686,14 @@ function savePreferences(storage, preferences) {
   } catch { return false; }
 }
 
+
 // ===== step-counter.js =====
 /**
- * Count effective player moves using canonical physical axes and layer ranges.
- * This is a display-only metric: raw history remains intact for undo/redo.
- * A single move can twist any contiguous set of layers by the same amount.
- * Consecutive operations about the same physical axis combine per layer,
- * including opposite-end descriptions of the same skew axis.
+ * Canonical effective operation sequence shared by the step counter and log.
+ * Preserve raw moves separately so undo, redo and old saves keep working.
+ * Consecutive twists of the same physical axis commute layer-by-layer;
+ * merged contiguous equal-angle runs each count as one effective operation.
  */
-
-
 /** Canonical zero-based inclusive layer interval and signed turn. */
 function canonicalTurn(move, order) {
   if (!Number.isInteger(order) || order < 2 || order > 6) throw new RangeError('Invalid puzzle order');
@@ -692,59 +705,129 @@ function canonicalTurn(move, order) {
   const firstLocalLayer = effectiveWide(move, order) ? 0 : lastLocalLayer;
   const first = fromOppositeEnd ? total - 1 - lastLocalLayer : firstLocalLayer;
   const last = fromOppositeEnd ? total - 1 - firstLocalLayer : lastLocalLayer;
-  // Orthogonal twists always use the +coordinate axis irrespective of which
-  // outer side was selected. A skew's rotation axis vector is the chosen
-  // corner; describing the same axis from its opposite vertex reverses it.
   const signed = move.type === 'corner' ? move.sign * move.corner[0] : move.sign;
-  return {key, total, period, first, last, signed};
+  return { key, total, period, first, last, signed };
 }
 
-function addTurn(values, turn) {
-  for (let i=turn.first; i<=turn.last; i++) {
-    values[i] = (values[i] + turn.signed + turn.period) % turn.period;
-  }
-}
-function isIdentity(values){return values.every(x=>x===0);}
-function countIntervals(values) {
-  let count=0, last=0;
-  for (const value of values) {
-    // A contiguous run of the same non-zero rotation can be one layer-range move.
-    if (value && value!==last) count++;
-    last=value;
-  }
-  return count;
-}
+function isIdentity(values) { return values.every(v => v === 0); }
 
-function countEffectiveSteps(history, order) {
+/** Get the fully reduced consecutive-axis runs, in play order. */
+function effectiveOperations(history, order) {
   const groups=[];
   for (const move of history) {
     const turn=canonicalTurn(move,order);
-    let current=groups.at(-1);
-    if (!current || current.key!==turn.key) {
-      current={key:turn.key,values:Array(turn.total).fill(0)};
-      groups.push(current);
+    let group=groups.at(-1);
+    if (!group || group.key !== turn.key) {
+      group={key:turn.key,type:move.type,total:turn.total,period:turn.period,
+        preferredEnd:(move.type==='orth' ? move.side : move.corner[0]),
+        values:Array(turn.total).fill(0)};
+      groups.push(group);
     }
-    addTurn(current.values, turn);
-    if (isIdentity(current.values)) groups.pop();
+    for (let i=turn.first;i<=turn.last;i++) {
+      group.values[i]=(group.values[i]+turn.signed+turn.period)%turn.period;
+    }
+    if (isIdentity(group.values)) groups.pop();
   }
-  return groups.reduce((sum,group)=>sum+countIntervals(group.values),0);
+  const result=[];
+  for (const group of groups) {
+    for (let i=0;i<group.total;) {
+      const value=group.values[i];
+      if (value===0) {i++;continue;}
+      const first=i;
+      while (i+1<group.total && group.values[i+1]===value)i++;
+      const last=i;
+      // Use the end closest to the final operated interval. For center / whole
+      // axis ties, retain the end of the first gesture for readable notation.
+      const distanceFromPositive=first;
+      const distanceFromNegative=group.total-1-last;
+      const end=distanceFromPositive<distanceFromNegative ? 1
+        : distanceFromPositive>distanceFromNegative ? -1 : group.preferredEnd;
+      result.push({key:group.key,type:group.type,total:group.total,
+        period:group.period,first,last,value,end});
+      i++;
+    }
+  }
+  return result;
 }
 
-/** Index of the initial scramble's last move in raw history. */
+function countEffectiveSteps(history, order) {
+  return effectiveOperations(history, order).length;
+}
+
+/** Atomic step count / notation view, reset by the shared challengeStart. */
+function playerEffectiveOperations(history, challengeStart, order, scrambleRunning=false) {
+  if (scrambleRunning || history.length<=challengeStart) return [];
+  return effectiveOperations(history.slice(challengeStart),order);
+}
+
 function countPlayerSteps(history, challengeStart, order, scrambleRunning=false) {
-  if (scrambleRunning || history.length <= challengeStart) return 0;
-  return countEffectiveSteps(history.slice(challengeStart), order);
+  return playerEffectiveOperations(history,challengeStart,order,scrambleRunning).length;
+}
+
+
+// ===== move-notation.js =====
+/** OrthoSkew move notation based on the *same* canonical runs as step counting. */
+
+const SUBSCRIPT='₀₁₂₃₄₅₆₇₈₉';
+const CORNERS={
+  '-1,1,1':'P', '1,1,1':'Q', '-1,-1,1':'G', '1,-1,1':'H',
+  '-1,1,-1':'J', '1,1,-1':'K', '-1,-1,-1':'V', '1,-1,-1':'W'
+};
+const formatSubscript=n=>String(n).replace(/[0-9]/g,d=>SUBSCRIPT[Number(d)]);
+
+function formatOperation(op) {
+  let name;
+  if(op.type==='orth') {
+    const axis=Number(op.key.split(':')[1]);
+    const faces=[['R','L'],['U','D'],['F','B']];
+    name=faces[axis][op.end===1?0:1];
+  } else {
+    // key is normalized to the endpoint with positive X, so choose the
+    // opposite corner when formatting from the other end of that same axis.
+    const sign=op.key.slice('skew:'.length).split(',').map(Number);
+    const corner=sign.map(x=>x*op.end);
+    name=CORNERS[corner.join(',')];
+  }
+  if (!name) throw new Error(`Unrecognized physical axis ${op.key}`);
+  // Whole-cube turns follow Singmaster x/y/z (positive X/Y/Z,
+  // respectively the R/U/F sense), regardless of the side used to form them.
+  // Camera/view rotations never enter this move record.
+  const wholeCube=op.type==='orth' && op.first===0 && op.last===op.total-1;
+  const chosenEnd=wholeCube?1:op.end;
+  if(wholeCube)name=['x','y','z'][Number(op.key.split(':')[1])];
+  const first=chosenEnd===1?op.first+1:op.total-op.last;
+  const last=chosenEnd===1?op.last+1:op.total-op.first;
+  if(wholeCube){
+    // The x/y/z token itself always means every layer: no subscript.
+  } else if(first===1 && last>1){
+    name=name.toLowerCase();
+    if(last!==2)name+=formatSubscript(last);
+  } else if(first===last){
+    if(first!==1)name+=formatSubscript(first);
+  } else {
+    name+=`${formatSubscript(first)}₋${formatSubscript(last)}`;
+  }
+  // Right-handed positive angles are counterclockwise when looking at the
+  // named outer end. All face and corner labels are interpreted from outside.
+  const localValue=(op.value * chosenEnd + op.period)%op.period;
+  const clockwise=(-localValue+op.period)%op.period;
+  if(op.period===4){
+    if(clockwise===2)name+='2';
+    else if(clockwise===3)name+="'";
+  } else if(clockwise===2)name+="'"; // reverse 120° (240°) is not 180°
+  return name;
+}
+
+function formatOperations(operations) {
+  return operations.map(formatOperation).join(' ');
+}
+
+function summarizePlayerMoves(history, challengeStart, order, scrambleRunning=false){
+  const operations=playerEffectiveOperations(history,challengeStart,order,scrambleRunning);
+  return {steps:operations.length, text:formatOperations(operations), operations};
 }
 
 // ===== app.js =====
-
-
-
-
-
-
-
-
 const $ = (sel) => document.querySelector(sel);
 const stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -937,7 +1020,11 @@ function selectedPieces(move){
 }
 function refreshStatus(message=''){
   $('#pieceCount').textContent=pieces.length.toLocaleString('zh-CN');
-  $('#moveCount').textContent=countPlayerSteps(moves,challengeStart,N,scrambleRunning);
+  const record=summarizePlayerMoves(moves,challengeStart,N,scrambleRunning);
+  $('#moveCount').textContent=record.steps;
+  const operationLog=$('#operationLog');
+  if(operationLog.value!==record.text)operationLog.value=record.text;
+  $('#btnCopyOperations').disabled=!record.text;
   const locked=busy||scrambleRunning;
   $('#btnUndo').disabled=locked||moves.length===0;
   $('#btnRedo').disabled=locked||redo.length===0;
@@ -952,6 +1039,24 @@ function refreshStatus(message=''){
   if(message)$('#toastText').textContent=message;
 }
 function statusToast(message){$('#toastText').textContent=message;}
+async function copyOperations(){
+  const text=$('#operationLog').value;
+  if(!text)return;
+  try {
+    if(navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+    else {
+      const field=$('#operationLog');
+      field.focus({preventScroll:true});field.select();
+      if(!document.execCommand('copy'))throw new Error('Clipboard unavailable');
+      field.setSelectionRange(0,0);field.blur();
+    }
+    statusToast('本轮操作已复制');
+  }catch(err){
+    console.warn('Copy failed:',err);
+    statusToast('复制失败，请长按文本框选择复制');
+  }
+}
+$('#btnCopyOperations').addEventListener('click',copyOperations);
 async function createPuzzle(order){
   const myGeneration=++cubeGeneration;
   busy=true;refreshStatus();
@@ -1284,6 +1389,7 @@ $('#order').value=String(startupPreferences.order);
 $('#scrambleAnimate').checked=startupPreferences.animate;
 updateCamera();createPuzzle(startupPreferences.order);
 
+
 </script>
 </head>
 <body>
@@ -1297,7 +1403,7 @@ updateCamera();createPuzzle(startupPreferences.order);
       </div>
       <div class="header-right">
         <button id="btnSidebarToggle" class="panel-toggle" type="button" aria-controls="gameSidebar" aria-expanded="true" aria-label="收起操作面板" title="收起操作面板"><span class="panel-toggle-icon" aria-hidden="true">◂</span><span class="panel-toggle-text">收起面板</span></button>
-        <span class="build-tag">V1.13</span>
+        <span class="build-tag">V1.16</span>
         <button class="icon-button" id="btnHelp" title="操作说明" aria-label="操作说明">?<span class="desktop-only"> 操作指南</span></button>
       </div>
     </header>
@@ -1362,15 +1468,19 @@ updateCamera();createPuzzle(startupPreferences.order);
     
   </div>
   <dialog id="helpDialog">
-    <div class="dialog-inner"><div class="dialog-head"><div><h2>操作说明</h2></div><button id="closeHelp" class="close-dialog" aria-label="关闭">×</button></div>
+    <div class="dialog-inner"><div class="dialog-head"><div><h2>操作指南</h2></div><button id="closeHelp" class="close-dialog" aria-label="关闭">×</button></div>
       <p>在魔方表面按住鼠标左键或使用单指，沿水平、竖直或斜向滑动即可转层。<strong>滑动方向以按下时触摸的魔方表面为准</strong>，不以屏幕方向为准。</p>
       <div class="guide-grid"><div><span>↑ ↓ ← →</span><strong>普通转层</strong><small>水平或竖直滑动，转动 90°</small></div><div><span>↗ ↘ ↙ ↖</span><strong>斜向转层</strong><small>沿对角方向滑动，转动 120°</small></div></div>
       <p><strong>中间斜层：</strong>从接触当前面外边缘的三角瓣开始，朝它所接触的边缘外侧斜拨。其他斜向滑动则转动相应的外侧斜层。</p><p><strong>多层：</strong>电脑按住 Ctrl 滑动；触屏先打开“多层模式”，再滑动。奇数阶的正中央层始终只转动本层。</p>
       <p><strong>视角：</strong>在空白处拖动或按住鼠标右键拖动，可查看任意一面；滚轮缩放。按 Q/E、使用操作面板中的视角滚转按钮，或按住 Shift+右键水平拖动，可旋转画面方向。触屏可用双指旋拧和捏合。</p>
       <p><strong>打乱：</strong>点击“随机打乱”开始新挑战。“显示打乱动画”默认开启，关闭后会立即完成打乱。</p>
       <p><strong>撤销：</strong>转错时点“撤销”，或在电脑上按 Ctrl+Z；“重做”可以恢复刚撤销的操作。</p>
-      <p><strong>步数：</strong>打乱不计步；连续同轴转动能合并成一步的按一步计算，完全抵消则不计步。</p>
+      <p><strong>步数与本轮操作：</strong>打乱后从零开始记录；连续同轴转动会合并，抵消的操作会消失。U/D/L/R/F/B 表示普通层；P/Q/G/H/J/K/V/W 分别表示 FUL/FUR/FDL/FDR/BUL/BUR/BDL/BDR 八个角的斜层。面或角的小写（如 r、p）表示前两层，带下标可表示更多层（如 p₃），指定层区间可写为 P₂₋₄。x/y/z 表示绕 R/U/F 方向整体旋转魔方，改变视角不计入操作。反向用 '，180° 用 2。</p>
       
+      <section class="operation-section" aria-label="本轮操作">
+        <div class="operation-heading"><label for="operationLog">本轮操作</label><button id="btnCopyOperations" type="button" disabled>复制</button></div>
+        <textarea id="operationLog" class="operation-log" readonly spellcheck="false" aria-label="本轮操作记录" placeholder="暂无操作"></textarea>
+      </section>
     </div>
   </dialog>
 </body>
